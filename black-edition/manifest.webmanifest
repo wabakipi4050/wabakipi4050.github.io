@@ -1,0 +1,24 @@
+{
+  "name": "Black Edition",
+  "short_name": "Black Edition",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#030303",
+  "theme_color": "#030303",
+  "description": "Black Edition 2.1.0 — independent bot-settings calculator. Educational, not financial advice.",
+  "icons": [
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "name": "CryptoCal Px",
+  "short_name": "CryptoCal Px",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#101214",
+  "theme_color": "#101214",
+  "description": "CryptoCal Px 1.1.0 — independent bot-settings calculator. Educational, not financial advice.",
+  "icons": [
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
