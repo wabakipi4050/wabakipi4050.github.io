@@ -530,7 +530,9 @@ html.m-on .m-px em.pos { color: var(--ds-good); } html.m-on .m-px em.neg { color
 html.m-on .m-px b.tick-up { animation: ccTickUp .6s; } html.m-on .m-px b.tick-dn { animation: ccTickDn .6s; }
 @keyframes ccTickUp { from { color: var(--ds-good); text-shadow: 0 0 12px var(--ds-good); } }
 @keyframes ccTickDn { from { color: var(--ds-bad); text-shadow: 0 0 12px var(--ds-bad); } }
-html.m-on .m-brand { font-family: var(--ds-display); font-size: 16px; }
+html.m-on .m-brand { font-family: var(--ds-display); font-size: 17px; }
+html.m-on .m-brand > span { white-space: nowrap; }
+html.m-on .m-brand > svg { flex: 0 0 auto; }
 html.m-on .m-brand .cc-px { font-size: .72em; }
 html.m-on .cc-drawer { z-index: 950; padding-top: calc(16px + var(--sat, 0px)); }
 html.m-on .cc-toast { display: none; }
