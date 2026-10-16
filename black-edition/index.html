@@ -456,6 +456,42 @@ select.fv-in { text-align: left; font-family: var(--f-ui); font-size: 14px; }
 .empty { padding: 34px 22px; text-align: center; color: var(--fg-3); }
 .empty b { color: var(--fg); display: block; font-size: 15px; margin-bottom: 6px; }
 
+/* ------------------- fees and where the money goes ------------------- */
+.costs { display: grid; gap: 8px; padding: 14px 22px 16px; border-top: 1px solid var(--line); }
+.costs h3 { margin: 0 0 2px; font: 600 10.5px/1 var(--f-ui); letter-spacing: 0.2em; text-transform: uppercase; color: var(--fg-3); }
+.costs p { margin: 0; color: var(--fg-2); font-size: 12.5px; line-height: 1.5; max-width: 78ch; }
+
+/* ------------------ where the result came from ------------------ */
+.parts { display: grid; padding: 6px 18px 12px; }
+.pr { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(70px, 1fr) 5.4em; gap: 12px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+.pr .l { color: var(--fg-2); min-width: 0; }
+.pr .l small { display: block; color: var(--fg-4); font-size: 11px; line-height: 1.3; margin-top: 1px; }
+.pr b { font: 600 13px/1 var(--f-num); text-align: right; }
+.pr.total { border-bottom: 0; }
+.pr.total .l { color: var(--fg); font-weight: 600; }
+.pb { position: relative; display: block; height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.05); }
+.pb::after { content: ''; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--line-2); }
+.pb i { position: absolute; top: 0; bottom: 0; border-radius: 4px; }
+.pb i.pos { background: var(--good); box-shadow: 0 0 10px rgba(86, 214, 166, 0.35); }
+.pb i.neg { background: var(--bad); box-shadow: 0 0 10px rgba(255, 111, 111, 0.3); }
+
+/* -------------------- compare another setup -------------------- */
+.cmp-panel { display: grid; gap: 10px; margin: 0 16px 18px; padding: 14px 14px 16px; border: 1px dashed var(--line-accent); border-radius: 12px; background: var(--panel-2); }
+.cmp-hd { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.cmp-hd b { font-size: 13.5px; }
+.cmp-hd .dim { font-size: 11.5px; }
+.cmp-hint { margin: 0; color: var(--fg-3); font-size: 12px; line-height: 1.45; }
+.cmp-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px 14px; }
+.cmp-f { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12.5px; color: var(--fg-2); }
+.cmp-f .fv-in { width: 130px; height: 32px; font-size: 14px; box-shadow: none; border-color: var(--line-accent); }
+.cmp-act { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn.cmp-run { border-color: var(--line-accent); color: var(--accent-2); }
+table.cmp-t { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.cmp-t th { text-align: right; font: 600 10px/1.2 var(--f-ui); letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg-3); padding: 12px 16px 8px; border-bottom: 1px solid var(--line); }
+.cmp-t td { padding: 9px 16px; border-bottom: 1px solid var(--line); text-align: right; }
+.cmp-t th:first-child, .cmp-t td:first-child { text-align: left; color: var(--fg-3); }
+.cmp-t td.best { color: var(--good); font-weight: 600; }
+
 /* --------------------------------- matrix --------------------------------- */
 .tbl-wrap { overflow-x: auto; }
 table.matrix { width: 100%; border-collapse: collapse; font-size: 12.5px; }
@@ -532,6 +568,12 @@ dialog.toast {
   .frow { grid-template-columns: minmax(0, 1fr) auto 32px; gap: 8px; }
   .frow .fv { font-size: 16px; }
   .fv-in { width: 130px; }
+  .cmp-panel { margin: 0 12px 16px; }
+  .cmp-fields { grid-template-columns: minmax(0, 1fr); }
+  .costs { padding: 14px 16px 16px; }
+  .parts { padding: 6px 14px 12px; }
+  .pr { grid-template-columns: minmax(0, 1.4fr) minmax(56px, 1fr) 5.2em; gap: 8px; }
+  .cmp-t th, .cmp-t td { padding-left: 12px; padding-right: 12px; }
   .ladder-wrap canvas { height: 320px; }
   .hide-sm { display: none; }
   .tiles[style] { grid-template-columns: repeat(2, 1fr) !important; }
@@ -1107,16 +1149,34 @@ function replayGrid(S, i0, i1, cfg) {
     if (!g.bar(S.o[i], S.h[i], S.l[i], S.c[i], fund ? fund[i] : 0)) break;
   }
   const endPx = S.c[Math.min(i, i1) - 1] || st.last;
-  const equity = st.liq ? 0 : g.equity(st.stopped ? st.last : endPx);
+  const cap = cfg.capital;
+  const rawEquity = st.liq ? 0 : g.equity(st.stopped ? st.last : endPx);
+  let equity = rawEquity;
+  if (cfg.profitFee && equity > cap) equity = cap + (equity - cap) * (1 - cfg.profitFee);
   const bars = Math.max(1, i1 - i0);
+  const ret = equity / cap - 1;
+  /* Where the result came from, as the venue reports a grid: Total = Grid profit
+     (completed buy-then-sell pairs, fees on both fills deducted) + the unrealised
+     result of the coin or position the bot still holds, with funding, borrow
+     interest and any profit share on their own. `position` is the remainder, so
+     the parts add up to `ret` exactly. */
+  const gridPart = st.gridProfit / cap;
+  const fundingPart = -st.funding / cap;
+  const interestPart = -st.interest / cap;
+  const sharePart = (equity - rawEquity) / cap;
   return {
-    ret: equity / cfg.capital - 1,
+    ret,
     dd: Math.min(1, st.liq ? 1 : st.maxDD),
     trips: st.trips,
     liq: st.liq,
     stopped: st.stopped,
     inRangePct: (st.inRange / bars) * 100,
     endCoin: st.pos, endCash: st.cash, endPrice: endPx,
+    gridProfit: st.gridProfit, funding: st.funding, interest: st.interest,
+    parts: {
+      kind: 'grid', grid: gridPart, funding: fundingPart, interest: interestPart, share: sharePart,
+      position: ret - gridPart - fundingPart - interestPart - sharePart,
+    },
   };
 }
 
@@ -1185,20 +1245,28 @@ function replayInfinity(S, i0, i1, cfg) {
  * price reaches average cost × (1 + tp) the whole position sells and a new
  * round opens immediately. Futures: optional short side and leverage, with
  * liquidation and funding on the open position.
+ *
+ * `compound`: the venue's spot DCA bot reinvests each round's profit — after a
+ * take-profit the whole balance is split into shares again before the next
+ * round (its help centre: "designed to automatically reinvest profits back into
+ * the bot"). With it off, every round keeps the first round's size.
  * ======================================================================== */
 function makeMartingale(cfg, P0) {
   const { capital, devPct, n, scale, tpPct, side = 'long', leverage = 1,
-          feeMaker, feeTaker, mmr = 0, slPct = 0, onFill = null } = cfg;
+          feeMaker, feeTaker, mmr = 0, slPct = 0, compound = false, onFill = null } = cfg;
   const d = devPct / 100, tp = tpPct / 100;
   const dir = side === 'short' ? -1 : 1;
   const shares = Math.abs(scale - 1) < 1e-9 ? n + 1 : (1 - scale ** n) / (1 - scale) + 1;
-  const unit = (capital * leverage) / shares;           // notional per share
+  let unit = (capital * leverage) / shares;             // notional per share
 
   // quote; spot and futures both marked as cash + qty × price
   const st = { cash: capital, qty: 0, cost: 0, filledK: 0, nextPx: 0, tpPx: 0, roundStart: P0,
-               rounds: 0, fills: 0, peak: capital, maxDD: 0, liq: false, stopped: false, last: P0, funding: 0 };
+               rounds: 0, fills: 0, peak: capital, maxDD: 0, liq: false, stopped: false, last: P0, funding: 0,
+               realised: 0, roundCash0: capital, roundFunding0: 0 };
 
   function openRound(p) {
+    if (compound && st.rounds > 0) unit = (Math.max(0, st.cash) * leverage) / shares;
+    st.roundCash0 = st.cash; st.roundFunding0 = st.funding;
     const q = unit / p;
     st.qty = dir * q; st.cost = unit; st.roundStart = p;
     st.cash -= dir * unit + unit * feeTaker;
@@ -1235,6 +1303,8 @@ function makeMartingale(cfg, P0) {
       st.cash += st.qty * p - Math.abs(st.qty) * p * feeMaker;
       if (onFill) onFill({ type: dir === 1 ? 'sell' : 'buy', price: p, qty: Math.abs(st.qty), trip: true, profit });
       st.qty = 0; st.rounds++;
+      // the completed round's result, every fee included, funding counted on its own
+      st.realised += (st.cash - st.roundCash0) + (st.funding - st.roundFunding0);
       openRound(p);   // "Immediately": the next round opens at the exit price
     }
     if (mmr > 0 && st.qty !== 0) {
@@ -1258,7 +1328,8 @@ function makeMartingale(cfg, P0) {
 
   openRound(P0);
   return {
-    state: st, capital, unit, dir, n,
+    state: st, capital, dir, n,
+    get unit() { return unit; },
     equity: (p) => (st.liq ? 0 : equityAt(p)),
     avgCost: () => (st.qty !== 0 ? st.cost / Math.abs(st.qty) : null),
     /** Where this round's safety orders rest. */
@@ -1287,12 +1358,18 @@ function replayMartingale(S, i0, i1, cfg) {
   }
   const end = S.c[Math.min(i, i1) - 1] || st.last;
   const equity = st.liq ? 0 : st.stopped ? st.cash : st.cash + st.qty * end;
+  const ret = equity / cfg.capital - 1;
+  /* Completed rounds (sold at take-profit, fees included) vs the round still
+     open at the window's end, with funding on its own; the parts add to `ret`. */
+  const roundsPart = st.realised / cfg.capital;
+  const fundingPart = -st.funding / cfg.capital;
   return {
-    ret: equity / cfg.capital - 1,
+    ret,
     dd: st.liq ? 1 : Math.min(1, st.maxDD),
     trips: st.rounds,
     liq: st.liq, stopped: st.stopped,
     deepest: st.filledK,
+    parts: { kind: 'dca', rounds: roundsPart, funding: fundingPart, open: ret - roundsPart - fundingPart },
   };
 }
 
@@ -2188,6 +2265,44 @@ function robustScore(results, risk, H, mirrored = null) {
   return w * worst + (1 - w) * whole;
 }
 
+/**
+ * Where the average window's result came from, from each window's own parts:
+ * grid profit against the coin or position still held (grids), or completed
+ * rounds against the round still open (DCA), with funding, borrow interest and
+ * any profit share on their own lines. Null unless every window has parts.
+ */
+function partsOf(results) {
+  if (!results || !results.length || !results.every((r) => r && r.parts)) return null;
+  const avg = (f) => results.reduce((s, r) => s + f(r), 0) / results.length;
+  const kind = results[0].parts.kind;
+  const out = { kind, windows: results.length, totalPct: avg((r) => r.ret) * 100 };
+  for (const k of Object.keys(results[0].parts)) if (k !== 'kind') out[`${k}Pct`] = avg((r) => r.parts[k]) * 100;
+  const earned = kind === 'grid' ? 'grid' : 'rounds';
+  out.earnedButLost = results.filter((r) => r.parts[earned] > 0 && r.ret < 0).length;
+  return out;
+}
+
+/**
+ * What fees take from one grid step, worst and best gap. Gross is the bare price
+ * step; net is the form's "Profit/grid (fee deducted)"; kept = net ÷ gross.
+ * A step has to beat the round trip (a maker fee on the buy and on the sell)
+ * before it earns anything.
+ */
+function feeDragOf(lower, upper, grids, mode, fee) {
+  const n = Math.max(2, Math.round(grids));
+  if (!(upper > lower)) return null;
+  let gMin, gMax;
+  if (mode === 'geometric') { gMin = gMax = (upper / lower) ** (1 / (n - 1)) - 1; }
+  else { const step = (upper - lower) / (n - 1); gMin = step / (upper - step); gMax = step / lower; }
+  const ppg = profitPerGrid(lower, upper, n, mode, fee);
+  const kept = (net, gross) => (gross > 0 ? Math.max(-999, (net / (gross * 100)) * 100) : 0);
+  return {
+    feePct: fee * 100, roundTripPct: 2 * fee * 100,
+    grossMinPct: gMin * 100, grossMaxPct: gMax * 100, netMinPct: ppg.minPct, netMaxPct: ppg.maxPct,
+    keptMinPct: kept(ppg.minPct, gMin), keptMaxPct: kept(ppg.maxPct, gMax),
+  };
+}
+
 /* ============================== BOT FAMILIES ==============================
  * Each family knows three things:
  *   candidates(ctx)        the lattice, as plain parameter objects
@@ -2291,6 +2406,9 @@ const FAMILIES = {
         detail: {
           profitPerGrid: ppg, qtyPerGrid: alloc.q, coinToBuy: alloc.coinToBuy, sellOrders: alloc.sells, buyOrders: alloc.buys,
           halfWidthPct: ((shape.upper - shape.lower) / 2 / ctx.spot) * 100, levels: shape.levels,
+          feeDrag: feeDragOf(shape.lower, shape.upper, shape.grids, p.mode, ctx.fees.spotMaker),
+          use: { kind: 'spot', investment: ctx.capital, leverage: p.lev, borrowed: ctx.capital * Math.max(0, p.lev - 1),
+                 coinCost: alloc.coinToBuy * ctx.spot, inBuys: alloc.quoteReserved, borrowDailyPct: ctx.borrowDailyPct },
         },
       };
     },
@@ -2319,7 +2437,7 @@ const FAMILIES = {
       // judged in the COIN: how many coins you end with, against how many you put in
       const coinsIn = ctx.capital / P0;
       const coinsOut = r.endCoin + r.endCash / r.endPrice;
-      return { ...r, ret: coinsOut / coinsIn - 1 };
+      return { ...r, ret: coinsOut / coinsIn - 1, parts: null };      // judged in the COIN, so the USDT parts do not apply
     },
     fromValues(v, ctx) {
       const shape = gridFromValues(v, ctx);
@@ -2333,7 +2451,7 @@ const FAMILIES = {
           gridMode: p.mode === 'geometric' ? 'Geometric' : 'Arithmetic',
           investment: Number((ctx.capital / ctx.spot).toPrecision(6)), stopLoss: p.sl ? formPrice(p.sl) : '',
         },
-        detail: { profitPerGrid: ppg, levels: shape.levels, numeraire: 'coin' },
+        detail: { profitPerGrid: ppg, levels: shape.levels, numeraire: 'coin', feeDrag: feeDragOf(shape.lower, shape.upper, shape.grids, p.mode, ctx.fees.spotMaker) },
       };
     },
   },
@@ -2388,11 +2506,14 @@ const FAMILIES = {
           direction: { long: 'Long', short: 'Short', neutral: 'Neutral' }[p.kind],
           lowerPrice: formPrice(shape.lower), upperPrice: formPrice(shape.upper), grids: shape.grids,
           gridMode: p.mode === 'geometric' ? 'Geometric' : 'Arithmetic',
-          leverage: `${p.lev}x`, investment: r2(ctx.capital), triggerPrice: '', takeProfit: p.tp ? formPrice(p.tp) : '',
+          // Auto reserve OFF: the venue then holds nothing back, so the bot is the one measured here
+          leverage: `${p.lev}x`, autoReserve: 'Off', investment: r2(ctx.capital), triggerPrice: '', takeProfit: p.tp ? formPrice(p.tp) : '',
           stopLoss: p.sl ? formPrice(p.sl) : '', stopLossRise: p.slRise ? formPrice(p.slRise) : '',
           reserveMargin: '',
         },
-        detail: { profitPerGrid: ppg, levels: shape.levels, liqDown: liq.down, liqUp: liq.up, kind: p.kind },
+        detail: { profitPerGrid: ppg, levels: shape.levels, liqDown: liq.down, liqUp: liq.up, kind: p.kind,
+                  feeDrag: feeDragOf(shape.lower, shape.upper, shape.grids, p.mode, ctx.fees.futMaker),
+                  use: { kind: 'futures', investment: ctx.capital, leverage: p.lev, notional: ctx.capital * p.lev, side: p.kind } },
       };
     },
   },
@@ -2419,7 +2540,10 @@ const FAMILIES = {
     form(p, ctx, shape) {
       return {
         values: { lowerPrice: formPrice(shape.floor), profitPerGrid: r2(oc(p.step, PX.ig.profitMinPct, PX.ig.profitMaxPct)), investment: r2(ctx.capital) },
-        detail: { floorDropPct: (1 - shape.floor / ctx.spot) * 100, floor: shape.floor },
+        detail: { floorDropPct: (1 - shape.floor / ctx.spot) * 100, floor: shape.floor,
+                  feeDrag: (() => { const rt = 2 * ctx.fees.spotMaker * 100, net = p.step - rt;
+                    return { feePct: ctx.fees.spotMaker * 100, roundTripPct: rt, grossMinPct: p.step, grossMaxPct: p.step, netMinPct: net, netMaxPct: net,
+                             keptMinPct: (net / p.step) * 100, keptMaxPct: (net / p.step) * 100 }; })() },
       };
     },
   },
@@ -2429,7 +2553,8 @@ const FAMILIES = {
     prep() { return {}; },
     cfg(p, ctx) {
       return { capital: ctx.capital, devPct: p.dev, n: p.n, scale: p.s, tpPct: p.tp, slPct: p.sl || 0,
-               feeMaker: ctx.fees.spotMaker, feeTaker: ctx.fees.spotTaker };
+               feeMaker: ctx.fees.spotMaker, feeTaker: ctx.fees.spotTaker,
+               compound: true };       // the venue's spot DCA bot reinvests each round's profit (help centre, 2026)
     },
     run(S, s0, s1, p, ctx) { return replayMartingale(S, s0, s1, this.cfg(p, ctx)); },
     fromValues(v) {
@@ -2489,13 +2614,17 @@ function mtgForm(p, ctx, futures) {
     priceScaleMode: 'Percentage', priceDeviation: r1(p.dev), safetyOrders: p.n, volumeScale: r1(p.s),
     takeProfitRatio: r1(p.tp), investment: r2(ctx.capital), triggerPrice: '', stopLossPct: p.sl ? r1(p.sl) : '', nextRound: 'Immediately',
   };
-  if (futures) Object.assign(values, { direction: p.side === 'short' ? 'Short' : 'Long', leverage: `${p.lev}x` });
+  if (futures) Object.assign(values, { direction: p.side === 'short' ? 'Short' : 'Long', leverage: `${p.lev}x`, autoReserve: 'Off' });
+  const shares = mtgTotalShares(p.n, p.s), firstOrder = ctx.capital / shares * (p.lev || 1);
+  const fM = futures ? ctx.fees.futMaker : ctx.fees.spotMaker, fT = futures ? ctx.fees.futTaker : ctx.fees.spotTaker;
+  const rt = (fM + fT) * 100;                  // a taker buy to open, a maker sell at take profit
   return {
     values,
     detail: {
       coveragePct: lad.coveragePct, lastOrderPrice: lad.orders[lad.orders.length - 1].price,
-      shares: mtgTotalShares(p.n, p.s), firstOrder: ctx.capital / mtgTotalShares(p.n, p.s) * (p.lev || 1),
-      minInvest: mtgMinInvest(p.n, p.s), ladder: lad.orders,
+      shares, firstOrder, minInvest: mtgMinInvest(p.n, p.s), ladder: lad.orders,
+      feeDrag: { kind: 'dca', tpPct: p.tp, roundTripPct: rt, keptPct: p.tp > 0 ? Math.max(-999, ((p.tp - rt) / p.tp) * 100) : 0, compounds: !futures },
+      use: { kind: futures ? 'futures-dca' : 'dca', investment: ctx.capital, leverage: p.lev || 1, firstOrder, shares, scale: p.s },
     },
   };
 }
@@ -2601,6 +2730,7 @@ function finalise(fam, ctx, mkt, win1, best, extra = {}) {
     testFrom: win1.test.length ? mkt.S1.t[win1.test[0]] : null,
     walkForward: win1.walkForward,
     headline: test || train,
+    parts: partsOf(headRes),
     verdict: verdictOf(train, test, ctx),
     windows: { train: win1.train.length, test: win1.test.length, days: ctx.H, stride: win1.stride / 24 },
     ctx: { capital: ctx.capital, risk: ctx.risk, H: ctx.H, spot: ctx.spot, sigmaD: ctx.sigmaD, mmr: ctx.mmr, depth: ctx.depth, fees: ctx.fees },
@@ -2831,7 +2961,7 @@ function solveUnmeasured(bot, mkt, input, bestFutures = null) {
     const v = bestFutures.values;
     const lev = Math.max(1, Math.min(numLev(v.leverage), Math.floor(numLev(v.leverage) * 0.7)));
     values = { direction: v.direction, lowerPrice: v.lowerPrice, upperPrice: v.upperPrice, grids: v.grids, gridMode: v.gridMode,
-               leverage: `${lev}x`, investment: Number((capital / spot).toPrecision(6)) };
+               leverage: `${lev}x`, autoReserve: 'Off', investment: Number((capital / spot).toPrecision(6)) };
     notes.push({ level: 'info', text: 'Taken from the measured USDT-M solution, with leverage cut by 30% because an inverse long liquidates sooner.' });
   } else if (bot.solve === 'coinm') {
     return { ok: false, reason: 'Solve the USDT-M Futures Grid first — the COIN-M setup is derived from it.' };
@@ -3119,6 +3249,7 @@ const CATALOG = [
       F('grids', 'Grids', { kind: 'int', hint: '2 – 1000' }),
       F('gridMode', 'Grid mode', { kind: 'select', options: ['Arithmetic', 'Geometric'] }),
       F('leverage', 'Leverage', { kind: 'lev' }),
+      F('autoReserve', 'Auto reserve', { kind: 'select', options: ['On', 'Off'], hint: 'untick it: nothing is held back' }),
       F('investment', 'Investment', { unit: 'quote', kind: 'money', hint: 'margin' }),
       F('triggerPrice', 'Trigger price', { section: 'advanced', unit: 'quote', kind: 'price', optional: true }),
       F('takeProfit', 'Take profit price', { section: 'advanced', unit: 'quote', kind: 'price', optional: true }),
@@ -3140,6 +3271,7 @@ const CATALOG = [
       F('safetyOrders', 'Safety orders', { kind: 'int' }),
       F('volumeScale', 'Volume scale', { kind: 'dec1', hint: '1.0 – 2.0' }),
       F('takeProfitRatio', 'Take profit ratio', { unit: '%', kind: 'pct', hint: '≥ 0.2%' }),
+      F('autoReserve', 'Auto reserve', { kind: 'select', options: ['On', 'Off'], hint: 'untick it: nothing is held back' }),
       F('investment', 'Investment', { unit: 'quote', kind: 'money', hint: 'margin' }),
       F('stopLossPct', 'Stop loss percentage', { section: 'advanced', unit: '%', kind: 'pct', optional: true }),
     ],
@@ -3159,6 +3291,7 @@ const CATALOG = [
       F('grids', 'Grids', { kind: 'int', hint: '2 – 1000' }),
       F('gridMode', 'Grid mode', { kind: 'select', options: ['Arithmetic', 'Geometric'] }),
       F('leverage', 'Leverage', { kind: 'lev' }),
+      F('autoReserve', 'Auto reserve', { kind: 'select', options: ['On', 'Off'], hint: 'untick it: nothing is held back' }),
       F('investment', 'Investment', { unit: 'base', kind: 'coin', hint: 'margin, in the coin' }),
     ],
   },
@@ -4006,7 +4139,7 @@ html.m-on body{-webkit-tap-highlight-color:transparent}
 const BLACK_CONFIG = {
   app: 'Black Edition',
   shortName: 'Black Edition',
-  version: '2.1.0',
+  version: '2.2.0',
   publisher: 'Dennis Grobler',
   place: 'South Africa',
   website: 'https://wabakipi4050.github.io/black-edition/',
@@ -4160,6 +4293,26 @@ let FLASH = new Set();
 let EDITING = null;          // field id being edited inline
 let AUTOPLAY = false;        // #…&play=1 starts the ladder once the sweep is done
 
+/* "Compare another setup": the fields a measured bot is rebuilt from, where
+ * the other setup came from, and the last side-by-side measurement. */
+const CMP_FIELDS = {
+  grid: ['lowerPrice', 'upperPrice', 'grids', 'gridMode', 'leverage', 'takeProfit', 'stopLoss'],
+  reverse: ['lowerPrice', 'upperPrice', 'grids', 'gridMode', 'stopLoss'],
+  'futures-grid': ['direction', 'lowerPrice', 'upperPrice', 'grids', 'gridMode', 'leverage', 'takeProfit', 'stopLoss', 'stopLossRise'],
+  infinity: ['lowerPrice', 'profitPerGrid'],
+  martingale: ['priceDeviation', 'safetyOrders', 'volumeScale', 'takeProfitRatio', 'stopLossPct'],
+  'futures-martingale': ['direction', 'leverage', 'priceDeviation', 'safetyOrders', 'volumeScale', 'takeProfitRatio', 'stopLossPct'],
+};
+const CMP_SOURCES = [
+  { id: 'ai', label: 'venue’s AI suggestion', short: 'venue AI', hint: 'Read the values off the venue’s own suggestion — its “Use AI strategy” tab, or the “Smart parameters” link — and type them here.' },
+  { id: 'copy', label: 'copied strategy', short: 'copied', hint: 'Read the values off a card on the venue’s “Copy strategy” tab (or any setup someone shared) and type them here.' },
+  { id: 'mine', label: 'setup you typed', short: 'yours', hint: 'Type any setup you are considering.' },
+];
+let CMP = null;              // { key, label, short, values, ours, theirs }
+let CMP_OPEN = false;
+let CMP_SRC = 'ai';
+let CMP_DRAFT = {};
+
 const measuredBots = () => CATALOG.filter((b) => b.measured);
 /* Ranked in USDT. A reverse grid is judged in the coin — "+65% more SOL" in a
  * year SOL halved is not a USDT gain — so it sits in its own section. */
@@ -4218,7 +4371,7 @@ async function loadPair(input) {
   await forge();
 }
 
-function resetRuns() { RUN = { quick: new Map(), deep: new Map(), solved: new Map(), custom: new Map() }; }
+function resetRuns() { RUN = { quick: new Map(), deep: new Map(), solved: new Map(), custom: new Map() }; CMP = null; CMP_OPEN = false; CMP_DRAFT = {}; }
 
 async function forge() {
   if (!MKT) return;
@@ -4273,6 +4426,7 @@ async function deepen(id, from = 0) {
  * its deep sweep runs as soon as whatever is running now has finished. */
 async function select(id, view = 'setup') {
   S.botId = id; VARIANT = 0; EDITING = null; S.view = view; save();
+  CMP_OPEN = false; CMP_DRAFT = {};
   ladderStop();
   renderAll();
   if (!MKT || BUSY) return;
@@ -4526,7 +4680,7 @@ function display(f, v) {
   return String(v);
 }
 const rawCopy = (f, v) => (f.kind === 'lev' ? String(v).replace(/x$/i, '') : String(v));
-const FIXED = new Set(['priceScaleMode', 'nextRound', 'trailingUp', 'triggerPrice', 'reserveMargin']);
+const FIXED = new Set(['priceScaleMode', 'nextRound', 'trailingUp', 'triggerPrice', 'reserveMargin', 'autoReserve']);
 const editable = (b, f) => b.measured && b.solve !== 'arbitrage' && !f.derived && f.kind !== 'text' && !FIXED.has(f.id);
 
 function renderSetup() {
@@ -4592,14 +4746,17 @@ function renderSetup() {
         ${b.measured && b.solve !== 'arbitrage' ? '<div class="edit-hint">Click any value to change it — your version is measured on the same windows.</div>' : ''}
       </div>
       ${checksHtml(values, detail)}
+      ${costsHtml(b, values, detail)}
       <div class="actions">
         <button class="btn sm" data-act="copy-all">${IC.copy}Copy all</button>
         <button class="btn sm" data-act="copy-json">JSON</button>
         <button class="btn sm" data-act="copy-csv">CSV</button>
         <button class="btn sm" data-act="copy-md">Markdown</button>
         <button class="btn sm" data-act="download">${IC.dl}.txt</button>
+        ${b.measured && CMP_FIELDS[b.solve] ? `<button class="btn sm" data-act="compare" aria-expanded="${CMP_OPEN}">Compare another setup</button>` : ''}
         <button class="btn sm push" data-act="save-preset">${IC.save}Save</button>
       </div>
+      ${comparePanelHtml(b, values)}
     </div>
     ${canLadder ? ladderShellHtml(b) : ''}
     <div class="panel">
@@ -4655,6 +4812,125 @@ function checksHtml(v, d) {
   if (d.strikeDistancePct !== undefined) items.push(['Target sits', fmtPct(d.strikeDistancePct, 1), `from ${fmtPx(MKT.spot)}`]);
   if (!items.length) return '';
   return `<dl class="checks">${items.map(([k, val, sub]) => `<div><dt>${esc(k)}</dt><dd>${esc(val)}${sub ? `<br><small>${esc(sub)}</small>` : ''}</dd></div>`).join('')}</dl>`;
+}
+
+/** What fees take from each step or round, and where the investment goes. */
+function costsHtml(b, v, d) {
+  if (!d || !MKT) return '';
+  const fd = d.feeDrag, u = d.use;
+  const q = MKT.pair.quote, base = MKT.pair.base;
+  const pct = (x, k = 2) => `${Number(x).toFixed(k)}%`;
+  const span = (a, z, k = 2) => (Math.abs(a - z) < 0.5 * 10 ** -k ? pct(a, k) : `${pct(a, k)}–${pct(z, k)}`);
+  const money = (x) => `${fmtN(x, 0)} ${q}`;
+  const lines = [];
+  if (fd && fd.kind === 'dca') {
+    lines.push(`Fees: about ${pct(fd.roundTripPct)} a round (the opening market buy and the take-profit sell) against a ${pct(fd.tpPct, 1)} take profit, so each completed round keeps about ${fmtN(fd.keptPct, 0)}% of its target.${fd.compounds ? ' Each round’s profit is reinvested in the next round, as the venue’s spot DCA bot does.' : ''}`);
+  } else if (fd && fd.feePct > 0) {
+    lines.push(`Fees: ${pct(fd.roundTripPct)} of every grid step (${pct(fd.feePct, 3)} on the buy and again on the sell). Each step here is ${span(fd.grossMinPct, fd.grossMaxPct)} before fees and ${span(fd.netMinPct, fd.netMaxPct)} after, so fees take ${span(100 - fd.keptMaxPct, 100 - fd.keptMinPct, 0)} of what a step earns. A step has to beat ${pct(fd.roundTripPct)} to earn anything.`);
+  }
+  if (u && u.kind === 'spot' && d.sellOrders !== undefined) {
+    lines.push(u.leverage > 1
+      ? `Your ${money(u.investment)} plus about ${money(u.borrowed)} borrowed: about ${money(u.coinCost)} buys ≈ ${fmtN(d.coinToBuy, 6)} ${base} at creation for the ${d.sellOrders} sell orders, and about ${money(u.inBuys)} waits in the ${d.buyOrders} buy orders. The loan’s interest, at ${fmtN(u.borrowDailyPct, 3)}% a day, is charged in the evidence.`
+      : `Your ${money(u.investment)}: about ${money(u.coinCost)} buys ≈ ${fmtN(d.coinToBuy, 6)} ${base} at creation for the ${d.sellOrders} sell orders above the price, and about ${money(u.inBuys)} waits in the ${d.buyOrders} buy orders below. Both stay locked inside the bot until it closes.`);
+  } else if (u && u.kind === 'futures') {
+    lines.push(`Auto reserve off: all ${money(u.investment)} is the grid’s margin at ${u.leverage}×, up to ${money(u.notional)} of position once every order on the losing side fills. Nothing is held back, and that is the bot measured here. With Auto reserve on, the venue keeps part of it aside as extra margin by a split it does not publish — smaller grids, liquidation further away — and these figures would no longer match.`);
+  } else if (u && u.kind === 'futures-dca') {
+    lines.push(`Auto reserve off: all ${money(u.investment)} works in the ladder at ${u.leverage}× (${fmtN(u.shares, 1)} shares; the first order is about ${money(u.firstOrder)} of position). Nothing is held back, and that is the bot measured here; with Auto reserve on the venue would set part of it aside by a split it does not publish.`);
+  } else if (u && u.kind === 'dca') {
+    lines.push(`Your ${money(u.investment)} is split into ${fmtN(u.shares, 1)} shares: the first order is about ${money(u.firstOrder)}, and ${u.scale > 1 ? `each safety order is ${u.scale}× the one before` : 'every safety order is the same size'}.`);
+  }
+  if (b.solve === 'coinm' && v && v.autoReserve === 'Off') lines.push('Auto reserve off: all of the coin you put in is the grid’s margin, so the bot you create is the one the USDT-M grid measured.');
+  if (!lines.length) return '';
+  return `<div class="costs"><h3>Fees and where your money goes</h3>${lines.map((l) => `<p>${esc(l)}</p>`).join('')}</div>`;
+}
+
+/* ---- compare another setup ---- */
+
+const cmpKey = () => { const { b, values } = current(); return `${b.id}|${S.pair}|${S.capital}|${S.risk}|${S.horizon}|${JSON.stringify(values)}`; };
+const cmpHint = (s) => `${s.hint} Fields you leave as they are keep this setup’s values.`;
+
+/** The panel for another setup — the venue's AI suggestion, a copied strategy or your own. */
+function comparePanelHtml(b, values) {
+  if (!CMP_OPEN || !values || !CMP_FIELDS[b.solve]) return '';
+  const fields = CMP_FIELDS[b.solve].map((id) => b.fields.find((f) => f.id === id)).filter(Boolean);
+  const val = (f) => (CMP_DRAFT[f.id] !== undefined ? CMP_DRAFT[f.id] : values[f.id] === undefined || values[f.id] === '' ? '' : rawCopy(f, values[f.id]));
+  const src = CMP_SOURCES.find((s) => s.id === CMP_SRC) || CMP_SOURCES[0];
+  return `<div class="cmp-panel" id="cmp-panel">
+    <div class="cmp-hd"><b>Compare another setup</b><span class="dim">measured on the same windows</span></div>
+    <div class="seg sm" id="cmp-src" role="group" aria-label="Where the setup comes from">${CMP_SOURCES.map((s) => `<button data-src="${s.id}" aria-pressed="${s.id === src.id}">${esc(s.short)}</button>`).join('')}</div>
+    <p class="cmp-hint" id="cmp-hint">${esc(cmpHint(src))}</p>
+    <div class="cmp-fields">${fields.map((f) => `<label class="cmp-f"><span>${esc(f.label)}</span>${f.kind === 'select'
+      ? `<select class="fv-in" data-cmp="${f.id}">${f.options.map((o) => `<option ${String(o) === String(val(f)) ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`
+      : `<input class="fv-in num" data-cmp="${f.id}" inputmode="decimal" autocomplete="off" value="${esc(val(f))}" placeholder="blank">`}</label>`).join('')}</div>
+    <div class="cmp-act"><button class="btn sm cmp-run" data-act="cmp-go">Measure side by side</button><button class="btn sm" data-act="cmp-close">Close</button></div>
+  </div>`;
+}
+
+/** Measure the typed setup and this one as fixed values on the same windows. */
+function compareRun() {
+  const { b, values } = current();
+  if (!values || !MKT || !b.measured) return;
+  const typed = {};
+  let bad = null;
+  document.querySelectorAll('#cmp-panel [data-cmp]').forEach((el) => {
+    const f = b.fields.find((x) => x.id === el.dataset.cmp);
+    if (!f) return;
+    let v = String(el.value).trim();
+    if (f.kind !== 'select') {
+      if (v === '') v = f.optional ? '' : values[f.id];
+      else {
+        const n = Number(v.replace(/x$/i, ''));
+        if (!Number.isFinite(n) || n < 0) { bad = f.label; return; }
+        v = f.kind === 'lev' ? `${n}x` : f.kind === 'int' ? Math.round(n) : n;
+      }
+    }
+    typed[f.id] = v;
+  });
+  if (bad) { toast(`${bad}: not a valid number`); return; }
+  const cap = Number(values.investment);
+  const quoteInvest = b.fields.some((f) => f.id === 'investment' && f.unit === 'quote');
+  const inp = { ...inputs('deep', b), capital: quoteInvest && cap >= 10 ? cap : S.capital };
+  const ours = measureSetup(b, MKT, inp, values);
+  if (!ours.ok) { toast(ours.reason); return; }
+  const theirs = measureSetup(b, MKT, inp, { ...values, ...typed });
+  if (!theirs.ok) { toast(theirs.reason); return; }
+  const src = CMP_SOURCES.find((s) => s.id === CMP_SRC) || CMP_SOURCES[0];
+  CMP = { key: cmpKey(), label: src.label, short: src.short, values: typed, ours, theirs };
+  renderEvidence();
+  toast('Measured side by side — see the evidence');
+}
+
+/** The side-by-side table, at the top of the evidence. */
+function compareBlockHtml() {
+  if (!CMP || CMP.key !== cmpKey()) return '';
+  const A = CMP.ours.headline, B = CMP.theirs.headline;
+  const head = (res) => { const t = res.samples.filter((s) => s.set === 'test'); return t.length ? t : res.samples; };
+  const theirsByT = new Map(head(CMP.theirs).map((s) => [s.t, s.ret]));
+  const pairs = head(CMP.ours).filter((s) => theirsByT.has(s.t));
+  const n = pairs.length;
+  const oursWon = pairs.filter((s) => s.ret > theirsByT.get(s.t)).length;
+  const unseen = CMP.ours.test ? 'unseen ' : '';
+  const best = (a, z, hi) => (Math.abs(a - z) < 1e-9 ? ['', ''] : (hi ? a > z : a < z) ? ['best', ''] : ['', 'best']);
+  // mark the better figure only where it shows: two values that print the same are a tie
+  const line = (label, a, z, fmt, hi = true) => { const [ca, cz] = fmt(a) === fmt(z) ? ['', ''] : best(a, z, hi); return `<tr><td>${label}</td><td class="num ${ca}">${fmt(a)}</td><td class="num ${cz}">${fmt(z)}</td></tr>`; };
+  const days = CMP.ours.windows.days;
+  const verdict = A.meanPct >= B.meanPct
+    ? `On the same ${n} ${unseen}${days}-day windows this setup averaged ${fmtPct(A.meanPct, 2)} against ${fmtPct(B.meanPct, 2)} for the ${CMP.label}, and did better in ${oursWon} of ${n} windows head to head.`
+    : `On the same ${n} ${unseen}${days}-day windows the ${CMP.label} averaged ${fmtPct(B.meanPct, 2)} against ${fmtPct(A.meanPct, 2)} for this setup, and did better in ${n - oursWon} of ${n} windows head to head. Check its drawdown and worst window before you prefer it.`;
+  return `<div class="panel cmp-res">
+    <div class="phd"><h2>Side by side</h2><span class="push dim" style="font-size:11.5px">${esc(CMP.label)} · fixed values · same windows</span></div>
+    <table class="cmp-t"><thead><tr><th></th><th>this setup</th><th>${esc(CMP.short)}</th></tr></thead><tbody>
+      ${line('Annualised', A.annualPct, B.annualPct, (x) => fmtPct(x, 1))}
+      ${line('Mean window', A.meanPct, B.meanPct, (x) => fmtPct(x, 2))}
+      ${line('Median window', A.medianPct, B.medianPct, (x) => fmtPct(x, 2))}
+      ${line('Win rate', A.winRatePct, B.winRatePct, (x) => `${fmtN(x, 0)}%`)}
+      ${line('1 in 20 worst', A.p05Pct, B.p05Pct, (x) => fmtPct(x, 1))}
+      ${line('Worst drawdown', A.ddMaxPct, B.ddMaxPct, (x) => `${fmtN(x, 1)}%`, false)}
+      ${line('Liquidations', A.liquidations || 0, B.liquidations || 0, String, false)}
+      ${CMP.ours.bench && CMP.theirs.bench ? line('Beat holding the coin', CMP.ours.bench.beatHoldPct, CMP.theirs.bench.beatHoldPct, (x) => `${fmtN(x, 0)}%`) : ''}
+    </tbody></table>
+    <div class="notes">${noteHtml({ level: A.meanPct >= B.meanPct ? 'good' : 'warn', text: verdict })}</div>
+  </div>`;
 }
 
 /* =========================== THE EXECUTION LADDER =========================
@@ -5086,7 +5362,7 @@ function renderEvidence() {
   const unseen = !alt && r.walkForward && r.test;
   const numeraire = r.detail && r.detail.numeraire === 'coin' ? ` in ${MKT.pair.base}` : '';
   const alts = custom ? [] : distinctAlts(r);
-  el.innerHTML = `
+  el.innerHTML = `${compareBlockHtml()}
     <div class="panel">
       <div class="hero">
         <span class="lbl">${custom ? 'Your setup · ' : ''}${unseen ? 'Annualised · unseen windows' : alt ? `Annualised · ${esc(alt.label.toLowerCase())} setup, in-sample` : 'Annualised · in-sample'}${esc(numeraire)}</span>
@@ -5112,6 +5388,7 @@ function renderEvidence() {
         ${b.solve !== 'arbitrage' && Number.isFinite(h.tripsPerDay) && h.tripsPerDay > 0 ? `<div><span>${b.solve.includes('martingale') ? 'Rounds closed' : 'Round trips'}</span><b>${fmtN(h.tripsPerDay, 2)} / day</b></div>` : ''}
       </div>
       ${stripHtml(r)}
+      ${alt ? '' : partsHtml(b, r)}
     </div>
     <div class="panel">
       <div class="phd"><h2>Verdict</h2></div>
@@ -5126,6 +5403,45 @@ function renderEvidence() {
             </button>`).join('')}
         </div>` : ''}
     </div>`;
+}
+
+/**
+ * Where the average window's result came from, split the way the venue reports
+ * a bot: grid profit (or completed rounds) against the coin or position still
+ * held, with funding and borrow interest on their own lines.
+ */
+function partsHtml(b, r) {
+  const p = r.parts;
+  if (!p) return '';
+  const grid = p.kind === 'grid';
+  const held = b.market === 'spot' ? 'Coin still held' : 'Position still open';
+  const rows = grid
+    ? [['Grid profit', 'completed buy-then-sell pairs, after fees', p.gridPct],
+       [held, 'its price move, plus opening fees and any stop', p.positionPct],
+       ['Funding', 'paid or received every 8 h', p.fundingPct],
+       ['Borrow interest', 'charged daily on the borrowed part', p.interestPct],
+       ['Profit share', 'the venue’s cut of net profit', p.sharePct]]
+    : [['Completed rounds', 'sold at take profit, after fees', p.roundsPct],
+       ['Round still open', 'marked at the end of the window', p.openPct],
+       ['Funding', 'paid or received every 8 h', p.fundingPct]];
+  const shown = rows.filter(([, , v]) => Number.isFinite(v) && Math.abs(v) >= 0.005);
+  const scale = Math.max(0.01, Math.abs(p.totalPct) || 0, ...shown.map(([, , v]) => Math.abs(v)));
+  const bar = (v) => {
+    const w = Math.min(50, (Math.abs(v) / scale) * 50);
+    return `<span class="pb" aria-hidden="true"><i class="${v >= 0 ? 'pos' : 'neg'}" style="left:${v >= 0 ? 50 : 50 - w}%;width:${w.toFixed(2)}%"></i></span>`;
+  };
+  const row = ([label, sub, v], total = false) => `<div class="pr${total ? ' total' : ''}"><span class="l">${esc(label)}${sub ? `<small>${esc(sub)}</small>` : ''}</span>${bar(v)}<b class="num ${tone(v)}">${fmtPct(v, 2)}</b></div>`;
+  const notes = [];
+  if (p.earnedButLost) {
+    notes.push(grid
+      ? `In ${p.earnedButLost} of ${p.windows} windows the grid itself earned, yet the total lost money: ${b.market === 'spot' ? 'the coin it held fell' : 'the position it held moved against it'} by more than the grid made. That is the risk of a range bot in a one-way market.`
+      : `In ${p.earnedButLost} of ${p.windows} windows the completed rounds made money, yet the total lost: the last round was stuck short of its take profit when the window ended.`);
+  }
+  if (grid && b.solve === 'grid' && !b.margin) notes.push('Grid profit stays in the bot as cash here. The venue’s Auto Reinvest — a setting on a running bot — would buy coin with it in 24-hour batches once a threshold is met; that is not modelled.');
+  if (!grid && b.solve === 'martingale') notes.push('Each round’s profit is reinvested in the next round, as the venue’s DCA bot does, so later rounds are larger.');
+  return `<div class="phd" style="border-top:1px solid var(--line)"><h2>Where the result came from</h2><span class="push dim" style="font-size:11.5px">average ${r.test ? 'unseen ' : ''}window · % of capital</span></div>
+    <div class="parts">${shown.map((x) => row(x)).join('')}${row(['Total', '', p.totalPct], true)}</div>
+    ${notes.length ? `<div class="notes">${notes.map((t) => noteHtml({ level: 'info', text: t })).join('')}</div>` : ''}`;
 }
 
 /** Alternatives that actually differ from the chosen setup, with their index. */
@@ -5555,6 +5871,14 @@ document.addEventListener('click', (e) => {
   if (del) { savedWrite(savedList().filter((p) => p.id !== del.dataset.del)); renderSaved(); renderTabs(); toast('Deleted'); return; }
   const os = t.closest('[data-open-saved]');
   if (os) { openSaved(os.dataset.openSaved); return; }
+  const srcB = t.closest('#cmp-src [data-src]');
+  if (srcB) {
+    CMP_SRC = srcB.dataset.src;
+    document.querySelectorAll('#cmp-src [data-src]').forEach((x) => x.setAttribute('aria-pressed', String(x === srcB)));
+    const s = CMP_SOURCES.find((x) => x.id === CMP_SRC), h = $('#cmp-hint');
+    if (s && h) h.textContent = cmpHint(s);
+    return;
+  }
   const act = t.closest('[data-act]');
   if (!act) return;
   const a = act.dataset.act;
@@ -5566,6 +5890,14 @@ document.addEventListener('click', (e) => {
   if (a === 'download' && values) download(`${b.id}-${MKT.pair.base}-risk${S.risk}.txt`, setupText());
   if (a === 'save-preset') savePreset();
   if (a === 'reset-custom') { RUN.custom.delete(b.id); renderSetup(); renderEvidence(); renderLineup(); }
+  if (a === 'compare') {
+    CMP_OPEN = !CMP_OPEN;
+    CMP_DRAFT = CMP && CMP.key === cmpKey() ? Object.fromEntries(Object.entries(CMP.values).map(([k, x]) => [k, String(x).replace(/x$/i, '')])) : {};
+    renderSetup();
+    if (CMP_OPEN) { const p = $('#cmp-panel'); if (p && p.scrollIntoView) p.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+  }
+  if (a === 'cmp-close') { CMP_OPEN = false; renderSetup(); }
+  if (a === 'cmp-go') compareRun();
   if (a === 'copy-sheet') copy(sheetText(), 'Every setup copied');
   if (a === 'dl-sheet') download(`black-edition-${MKT ? MKT.pair.base : 'pair'}-cheat-sheet.txt`, sheetText());
   if (a === 'export-saved') download('black-edition-saved.json', JSON.stringify(savedList(), null, 2), 'application/json');
@@ -5574,6 +5906,7 @@ document.addEventListener('click', (e) => {
 document.addEventListener('change', (e) => {
   const id = e.target.id;
   if (e.target.matches && e.target.matches('select[data-edit]')) { commitEdit(e.target.dataset.edit, e.target.value); return; }
+  if (e.target.matches && e.target.matches('[data-cmp]')) { CMP_DRAFT[e.target.dataset.cmp] = e.target.value; return; }
   if (id === 'import-saved' && e.target.files && e.target.files[0]) {
     e.target.files[0].text().then((txt) => {
       try {
@@ -5601,6 +5934,7 @@ document.addEventListener('submit', (e) => {
 
 document.addEventListener('input', (e) => {
   const id = e.target.id;
+  if (e.target.matches && e.target.matches('[data-cmp]')) { CMP_DRAFT[e.target.dataset.cmp] = e.target.value; return; }
   if (id === 'risk') {
     S.risk = clampN(Number(e.target.value) || 5, 1, 10); save(); markStale();
     e.target.style.setProperty('--fill', `${((S.risk - 1) / 9) * 100}%`);
@@ -5618,6 +5952,10 @@ document.addEventListener('input', (e) => {
 
 document.addEventListener('keydown', (e) => {
   const t = e.target;
+  if (t.matches && t.matches('[data-cmp]')) {
+    if (e.key === 'Enter') { e.preventDefault(); compareRun(); }
+    return;
+  }
   if (t.matches && t.matches('[data-edit]')) {
     if (e.key === 'Enter') { e.preventDefault(); commitEdit(t.dataset.edit, t.value); }
     if (e.key === 'Escape') { EDITING = null; renderSetup(); }
@@ -5833,6 +6171,8 @@ window.addEventListener('resize', () => { if (LAD.canvas && document.body.contai
     hero();
     // picking a bot in the line-up jumps to its setup
     document.addEventListener('click', (e) => { if (e.target.closest('#lineup [data-bot]')) setTimeout(() => PM.go('setup'), 60); });
+    // a side-by-side measurement lands in the evidence
+    document.addEventListener('click', (e) => { if (e.target.closest('[data-act="cmp-go"]')) setTimeout(() => { if (q('#evidence .cmp-res')) PM.go('proof'); }, 80); });
     // forge progress on the button ring
     const bar = () => { const b = q('#bar'); if (!b) return; const w = parseFloat(b.style.width) || 0; PM.progress(w > 0 && w < 100 ? w / 100 : null); };
     new MutationObserver(bar).observe(document.body, { attributes: true, subtree: true, attributeFilter: ['style'] });

@@ -8,7 +8,7 @@
 <meta name="description" content="CryptoCal Px — settings for 26 trading-bot creation flows, computed from real market data and judged on history they were never tuned on.">
 <meta name="author" content="Dennis Grobler">
 <meta name="copyright" content="(c) 2018-2026 Dennis Grobler - All rights reserved">
-<meta name="generator" content="CryptoCal Px 1.1.0">
+<meta name="generator" content="CryptoCal Px 1.2.0">
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#101214">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23101214'/%3E%3Cpath d='M14 44 L26 28 L36 36 L50 18' stroke='%233cc4f0' stroke-width='6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='50' cy='18' r='5' fill='%23ff7a1a'/%3E%3C/svg%3E">
@@ -436,6 +436,34 @@
   .cc-tbl.sortable th { cursor: pointer; }
   .cc-tbl td.num { font-family: var(--ds-mono); }
   .cc-dots { width: 100%; height: 74px; display: block; }
+  .cc-card h4 small { text-transform: none; letter-spacing: 0; font-weight: 400; margin-left: 6px; }
+
+  /* where the result came from: a diverging bar per part, zero in the middle */
+  .cc-parts { display: grid; gap: 2px; }
+  .cc-pr { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(70px, 1fr) 4.6em; gap: 10px; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--ds-line-soft); font-size: var(--ds-t-xs); }
+  .cc-pr .l { color: var(--ds-fg-dim); min-width: 0; }
+  .cc-pr .l small { display: block; color: var(--ds-fg-mute); font-size: 10px; line-height: 1.25; }
+  .cc-pr b { font: 600 var(--ds-t-xs)/1 var(--ds-mono); text-align: right; }
+  .cc-pr b.pos { color: var(--ds-good); } .cc-pr b.neg { color: var(--ds-bad); }
+  .cc-pr.total { border-bottom: 0; border-top: 1px solid var(--ds-line); margin-top: 2px; }
+  .cc-pr.total .l { color: var(--ds-fg); font-weight: 600; }
+  .cc-pb { position: relative; display: block; height: 10px; border-radius: 3px; background: var(--ds-line-soft); }
+  .cc-pb::after { content: ''; position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: var(--ds-fg-mute); }
+  .cc-pb i { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
+  .cc-pb i.pos { background: var(--ds-good); } .cc-pb i.neg { background: var(--ds-bad); }
+
+  /* fees and where the money goes */
+  .cc-cost { margin: 4px 0; line-height: 1.45; }
+
+  /* compare another setup */
+  .cc-compare { margin-top: var(--ds-s-3); padding: 10px 12px 12px; border: 1px dashed var(--cc-venue-edge); border-radius: var(--ds-r-lg); background: var(--ds-panel-2); }
+  .cc-compare h4 { margin-top: 0; }
+  .cc-compare .cc-seg { margin-bottom: 6px; }
+  .cc-compare select.edit { width: 100%; background: var(--ds-bg-sunk); border: 1px solid var(--cc-venue-edge); border-radius: var(--ds-r); padding: 4px 6px; font-family: var(--ds-mono); color: var(--ds-fg); }
+  .cc-compare .cc-row { margin-top: 10px; }
+  .cc-btn-go { border-color: var(--cc-venue-edge); color: var(--cc-venue); }
+  .cc-cmp { margin-bottom: var(--ds-s-3); padding-bottom: 4px; border-bottom: 1px solid var(--ds-line); }
+  .cc-cmp .cc-tbl td.best { color: var(--ds-good); font-weight: 600; }
 
   /* chart */
   .cc-chart { position: relative; height: 380px; }
@@ -668,7 +696,7 @@ html.m-on .cc-toast { display: none; }
 </dialog>
 
 <footer class="cc-foot">
-  <span>CryptoCal Px 1.1.0 · © 2018-2026 Dennis Grobler</span>
+  <span>CryptoCal Px 1.2.0 · © 2018-2026 Dennis Grobler</span>
   <span>Independent tool. Not affiliated with, endorsed by or connected to any exchange. Educational — not financial advice. Leveraged trading can lose more than the capital committed.</span>
 </footer>
 
@@ -1729,6 +1757,25 @@ function symbolRules(base, quote = 'USDT') {
 }
 const listedBases = (quote = 'USDT') => SYMBOL_RULES_ROWS.filter((r) => r[1] === quote).map((r) => r[0]);
 
+/**
+ * Tokenised stocks, ETFs and metals the venue lists — from the symbol snapshot
+ * above and the venue's RWA pages, read 2026-10-16. They follow their own
+ * market's trading sessions (some pause while that market is closed) and fee
+ * schedule, and the open market this app reads has no history for them, so the
+ * app says so rather than computing. PAXG is left out: it trades around the
+ * clock and its history is on the data source.
+ */
+const RWA_AS_OF = '2026-10-16';
+const RWA_BASES = new Set([
+  // stocks and ETFs
+  'AAPLX', 'AMZNX', 'BMNRX', 'CRCLX', 'CRWVX', 'GOOGLX', 'GRALX', 'IBMX', 'INTCX', 'IRENX', 'KORUX', 'METAX', 'MSTRX', 'MSTUX',
+  'MUX', 'NVDAX', 'NVOX', 'PYPLX', 'QQQX', 'SKHX', 'SKHY', 'SNDKX', 'SNPSX', 'SOXLX', 'SOXSX', 'SPCX', 'SPYX', 'TELX', 'TSLAX',
+  'TSMX', 'USARX', 'USOX', 'WULFX', 'XYZX', 'AXTIX',
+  // metals, energy and miners
+  'XAUT', 'XAU', 'XAG', 'WTI', 'SLVX', 'PALLX', 'PPLTX', 'CPERX', 'COPXX', 'FCXX', 'AAX', 'CCJX', 'URAX', 'UAMYX', 'LACX',
+]);
+const isRwa = (base) => RWA_BASES.has(String(base || '').toUpperCase());
+
 /* ------------------------------- price ticks ------------------------------ */
 
 /** Price tick from the published precision, else a sensible default by magnitude. */
@@ -2222,11 +2269,23 @@ function replayGrid(S, i0, i1, cfg) {
     if (!g.bar(S.o[i], S.h[i], S.l[i], S.c[i], fund ? fund[i] : 0)) break;
   }
   const endPx = S.c[Math.min(i, i1) - 1] || st.last;
-  let equity = st.liq ? 0 : g.equity(st.stopped ? st.last : endPx);
-  if (cfg.profitFee && equity > cfg.capital) equity = cfg.capital + (equity - cfg.capital) * (1 - cfg.profitFee);
+  const cap = cfg.capital;
+  const rawEquity = st.liq ? 0 : g.equity(st.stopped ? st.last : endPx);
+  let equity = rawEquity;
+  if (cfg.profitFee && equity > cap) equity = cap + (equity - cap) * (1 - cfg.profitFee);
   const bars = Math.max(1, i1 - i0);
+  const ret = equity / cap - 1;
+  /* Where the result came from, as the venue reports a grid: Total = Grid profit
+     (completed buy-then-sell pairs, fees on both fills deducted) + the unrealised
+     result of the coin or position the bot still holds, with funding, borrow
+     interest and the venue's profit share shown on their own. `position` is the
+     remainder, so the parts add up to `ret` exactly. */
+  const gridPart = st.gridProfit / cap;
+  const fundingPart = -st.funding / cap;
+  const interestPart = -st.interest / cap;
+  const sharePart = (equity - rawEquity) / cap;
   return {
-    ret: equity / cfg.capital - 1,
+    ret,
     dd: Math.min(1, st.liq ? 1 : st.maxDD),
     trips: st.trips,
     liq: st.liq,
@@ -2234,6 +2293,10 @@ function replayGrid(S, i0, i1, cfg) {
     inRangePct: (st.inRange / bars) * 100,
     endCoin: st.pos, endCash: st.cash, endPrice: endPx,
     fills: st.fills, gridProfit: st.gridProfit, funding: st.funding, interest: st.interest,
+    parts: {
+      kind: 'grid', grid: gridPart, funding: fundingPart, interest: interestPart, share: sharePart,
+      position: ret - gridPart - fundingPart - interestPart - sharePart,
+    },
   };
 }
 
@@ -2302,20 +2365,28 @@ function replayInfinity(S, i0, i1, cfg) {
  * price reaches average cost × (1 + tp) the whole position sells and a new
  * round opens immediately. Futures: optional short side and leverage, with
  * liquidation and funding on the open position.
+ *
+ * `compound`: the venue's spot DCA bot reinvests each round's profit — after a
+ * take-profit the whole balance is split into shares again before the next
+ * round (its help centre: "designed to automatically reinvest profits back into
+ * the bot"). With it off, every round keeps the first round's size.
  * ======================================================================== */
 function makeMartingale(cfg, P0) {
   const { capital, devPct, n, scale, tpPct, side = 'long', leverage = 1,
-          feeMaker, feeTaker, mmr = 0, slPct = 0, onFill = null } = cfg;
+          feeMaker, feeTaker, mmr = 0, slPct = 0, compound = false, onFill = null } = cfg;
   const d = devPct / 100, tp = tpPct / 100;
   const dir = side === 'short' ? -1 : 1;
   const shares = Math.abs(scale - 1) < 1e-9 ? n + 1 : (1 - scale ** n) / (1 - scale) + 1;
-  const unit = (capital * leverage) / shares;           // notional per share
+  let unit = (capital * leverage) / shares;             // notional per share
 
   // quote; spot and futures both marked as cash + qty × price
   const st = { cash: capital, qty: 0, cost: 0, filledK: 0, nextPx: 0, tpPx: 0, roundStart: P0,
-               rounds: 0, fills: 0, peak: capital, maxDD: 0, liq: false, stopped: false, last: P0, funding: 0 };
+               rounds: 0, fills: 0, peak: capital, maxDD: 0, liq: false, stopped: false, last: P0, funding: 0,
+               realised: 0, roundCash0: capital, roundFunding0: 0 };
 
   function openRound(p) {
+    if (compound && st.rounds > 0) unit = (Math.max(0, st.cash) * leverage) / shares;
+    st.roundCash0 = st.cash; st.roundFunding0 = st.funding;
     const q = unit / p;
     st.qty = dir * q; st.cost = unit; st.roundStart = p;
     st.cash -= dir * unit + unit * feeTaker;
@@ -2352,6 +2423,8 @@ function makeMartingale(cfg, P0) {
       st.cash += st.qty * p - Math.abs(st.qty) * p * feeMaker;
       if (onFill) onFill({ type: dir === 1 ? 'sell' : 'buy', price: p, qty: Math.abs(st.qty), trip: true, profit });
       st.qty = 0; st.rounds++;
+      // the completed round's result, every fee included, funding counted on its own
+      st.realised += (st.cash - st.roundCash0) + (st.funding - st.roundFunding0);
       openRound(p);   // "Immediately": the next round opens at the exit price
     }
     if (mmr > 0 && st.qty !== 0) {
@@ -2375,7 +2448,8 @@ function makeMartingale(cfg, P0) {
 
   openRound(P0);
   return {
-    state: st, capital, unit, dir, n,
+    state: st, capital, dir, n,
+    get unit() { return unit; },
     equity: (p) => (st.liq ? 0 : equityAt(p)),
     avgCost: () => (st.qty !== 0 ? st.cost / Math.abs(st.qty) : null),
     /** Where this round's safety orders rest. */
@@ -2404,12 +2478,18 @@ function replayMartingale(S, i0, i1, cfg) {
   }
   const end = S.c[Math.min(i, i1) - 1] || st.last;
   const equity = st.liq ? 0 : st.stopped ? st.cash : st.cash + st.qty * end;
+  const ret = equity / cfg.capital - 1;
+  /* Completed rounds (sold at take-profit, fees included) vs the round still
+     open at the window's end, with funding on its own; the parts add to `ret`. */
+  const roundsPart = st.realised / cfg.capital;
+  const fundingPart = -st.funding / cfg.capital;
   return {
-    ret: equity / cfg.capital - 1,
+    ret,
     dd: st.liq ? 1 : Math.min(1, st.maxDD),
     trips: st.rounds,
     liq: st.liq, stopped: st.stopped,
     deepest: st.filledK,
+    parts: { kind: 'dca', rounds: roundsPart, funding: fundingPart, open: ret - roundsPart - fundingPart },
   };
 }
 
@@ -2635,6 +2715,45 @@ function summarise(results, H) {
   };
 }
 
+/**
+ * Where the average window's result came from, in % of capital: the parts each
+ * replay reports (grid: grid profit · held coin or position · funding · interest ·
+ * the venue's profit share; DCA: completed rounds · the open round · funding),
+ * averaged over the windows, plus how many windows earned on the grid (or on
+ * completed rounds) yet still lost money overall. Null when a family's replay
+ * does not report parts (infinity grid, the coin-judged reverse grid).
+ */
+function partsOf(results) {
+  if (!results || !results.length || !results.every((r) => r && r.parts)) return null;
+  const kind = results[0].parts.kind;
+  const out = { kind, windows: results.length, totalPct: mean(results.map((r) => r.ret)) * 100 };
+  for (const k of Object.keys(results[0].parts)) if (k !== 'kind') out[`${k}Pct`] = mean(results.map((r) => r.parts[k])) * 100;
+  const earned = kind === 'grid' ? 'grid' : 'rounds';
+  out.earnedButLost = results.filter((r) => r.parts[earned] > 0 && r.ret < 0).length;
+  return out;
+}
+
+/**
+ * What fees take from one grid step, worst and best gap. Gross is the bare price
+ * step; net is the form's "Profit/grid (fee deducted)"; kept = net ÷ gross.
+ * A step has to beat the round trip (a maker fee on the buy and on the sell)
+ * before it earns anything.
+ */
+function feeDragOf(lower, upper, grids, mode, fee) {
+  const n = Math.max(2, Math.round(grids));
+  if (!(upper > lower)) return null;
+  let gMin, gMax;
+  if (mode === 'geometric') { gMin = gMax = (upper / lower) ** (1 / (n - 1)) - 1; }
+  else { const step = (upper - lower) / (n - 1); gMin = step / (upper - step); gMax = step / lower; }
+  const ppg = profitPerGrid(lower, upper, n, mode, fee);
+  const kept = (net, gross) => (gross > 0 ? Math.max(-999, (net / (gross * 100)) * 100) : 0);
+  return {
+    feePct: fee * 100, roundTripPct: 2 * fee * 100,
+    grossMinPct: gMin * 100, grossMaxPct: gMax * 100, netMinPct: ppg.minPct, netMaxPct: ppg.maxPct,
+    keptMinPct: kept(ppg.minPct, gMin), keptMaxPct: kept(ppg.maxPct, gMax),
+  };
+}
+
 const opScore = (st, risk) => (st
   ? st.growth + lambdaTail(risk) * Math.min(0, st.cvar10) - lambdaDD(risk) * (st.dd90Pct / 100) - (st.liquidations && risk < 9 ? 1 : 0)
   : -Infinity);
@@ -2752,7 +2871,7 @@ function gridForm(ctx, shape, p, extra = {}) {
   const alloc = gridAllocation(shape.levels, ctx.spot, ctx.capital * (p.lev || 1));
   const P = (x) => formPrice(x, ctx.rules);
   return {
-    ppg, alloc,
+    ppg, alloc, drag: feeDragOf(shape.lower, shape.upper, shape.grids, p.mode, p.fee || 0),
     base: {
       lowerPrice: P(shape.lower), upperPrice: P(shape.upper), grids: shape.grids,
       gridMode: p.mode === 'geometric' ? 'Geometric' : 'Arithmetic',
@@ -2806,7 +2925,9 @@ const FAMILIES = {
           stopLoss: p.sl ? formPrice(p.sl, ctx.rules) : 'Not set', investmentAsset: 'USDT Only', trailingUp: 'Not set',
         },
         detail: { profitPerGrid: g.ppg, qtyPerGrid: g.alloc.q, coinToBuy: g.alloc.coinToBuy, sellOrders: g.alloc.sells, buyOrders: g.alloc.buys,
-                  minInvestment: minInv, levels: shape.levels, ...bandDetail(ctx, shape) },
+                  minInvestment: minInv, levels: shape.levels, feeDrag: g.drag,
+                  use: { kind: 'spot', coinCost: g.alloc.coinToBuy * ctx.spot, inBuys: g.alloc.quoteReserved, investment: ctx.capital },
+                  ...bandDetail(ctx, shape) },
       };
     },
   },
@@ -2828,7 +2949,7 @@ const FAMILIES = {
       const r = replayGrid(S, s0, s1, this.cfg(p, ctx, shape, P0, S, s0));
       const coinsIn = ctx.capital / P0;
       const coinsOut = r.endCoin + r.endCash / r.endPrice;
-      return { ...r, ret: coinsOut / coinsIn - 1 };      // judged in the COIN
+      return { ...r, ret: coinsOut / coinsIn - 1, parts: null };      // judged in the COIN, so the USDT parts do not apply
     },
     fromValues(v, ctx) {
       const shape = gridFromValues(v);
@@ -2839,7 +2960,7 @@ const FAMILIES = {
       return {
         values: { ...g.base, totalInvestment: formQty(ctx.capital / ctx.spot, ctx.rules), triggerPrice: '', closeBotAt: '',
                   stopLoss: p.sl ? formPrice(p.sl, ctx.rules) : '', slippageControl: 'Off', investmentAsset: `${ctx.mkt.pair.base} Only` },
-        detail: { profitPerGrid: g.ppg, levels: shape.levels, numeraire: 'coin', ...bandDetail(ctx, shape) },
+        detail: { profitPerGrid: g.ppg, levels: shape.levels, numeraire: 'coin', feeDrag: g.drag, ...bandDetail(ctx, shape) },
       };
     },
   },
@@ -2879,7 +3000,10 @@ const FAMILIES = {
                   grids: shape.grids, profitPerGrid: g.base.profitPerGrid, collateral: coll, leverage: `${p.lev}x`,
                   triggerPrice: '', slippage: slippageFor(ctx), takeProfit: 'Not set', stopLoss: p.sl ? formPrice(p.sl, ctx.rules) : 'Not set',
                   gridMode: g.base.gridMode },
-        detail: { levels: shape.levels, liqDown: liq.down, liqUp: liq.up, kind: p.kind, loanQuote: ctx.capital * (p.lev - 1), ...bandDetail(ctx, shape) },
+        detail: { levels: shape.levels, liqDown: liq.down, liqUp: liq.up, kind: p.kind, loanQuote: ctx.capital * (p.lev - 1),
+                  profitSharePct: VENUE.marginGrid.profitFee * 100,
+                  use: { kind: 'margin', investment: ctx.capital, leverage: p.lev, borrowed: ctx.capital * Math.max(0, p.lev - 1), side: p.kind },
+                  ...bandDetail(ctx, shape) },
       };
     },
   },
@@ -2925,7 +3049,8 @@ const FAMILIES = {
         values: {
           direction: { long: 'Long', short: 'Short', neutral: 'Neutral' }[p.kind],
           lowerPrice: g.base.lowerPrice, upperPrice: g.base.upperPrice, grids: shape.grids, previewGrids: 'On',
-          profitPerGrid: g.base.profitPerGrid, autoReserve: 'On', investment: opR2(ctx.capital), leverage: `${p.lev}x`,
+          // Auto reserve OFF: the venue then holds nothing back, so the bot is the one measured here
+          profitPerGrid: g.base.profitPerGrid, autoReserve: 'Off', investment: opR2(ctx.capital), extraMargin: '', leverage: `${p.lev}x`,
           triggerPrice: '', slippage: p.kind === 'neutral' ? '—' : slippageFor(ctx),
           takeProfit: p.tp ? formPrice(p.tp, ctx.rules) : 'Not set',
           stopLoss: p.sl ? formPrice(p.sl, ctx.rules) : 'Not set',
@@ -2933,7 +3058,9 @@ const FAMILIES = {
           gridMode: g.base.gridMode, trailingMove: p.kind === 'neutral' ? 'Cannot be set' : 'Not set',
         },
         detail: { profitPerGrid: g.ppg, levels: shape.levels, liqDown: liq.down, liqUp: liq.up, kind: p.kind,
-                  actualAfterLeverage: ctx.capital * p.lev, qtyPerGrid: g.alloc.q, ...bandDetail(ctx, shape) },
+                  actualAfterLeverage: ctx.capital * p.lev, qtyPerGrid: g.alloc.q, feeDrag: g.drag,
+                  use: { kind: 'futures', investment: ctx.capital, leverage: p.lev, notional: ctx.capital * p.lev, side: p.kind },
+                  ...bandDetail(ctx, shape) },
       };
     },
   },
@@ -2972,7 +3099,9 @@ const FAMILIES = {
                   investment: ctx.bot.numeraire === 'BTC' ? Number(ctx.capital.toPrecision(6)) : opR2(ctx.capital), leverage: `${p.lev}x`,
                   autoTrail: p.kind === 'neutral' ? '—' : 'On',
                   arbitrageRange: `${formPrice(shape.lower, ctx.rules)} – ${formPrice(shape.upper, ctx.rules)} (set by the venue)` },
-        detail: { levels: shape.levels, liqDown: liq.down, liqUp: liq.up, kind: p.kind, modelledStepPct: shape.modelledStepPct },
+        detail: { levels: shape.levels, liqDown: liq.down, liqUp: liq.up, kind: p.kind, modelledStepPct: shape.modelledStepPct,
+                  profitSharePct: VENUE.moon.profitFee * 100,
+                  use: { kind: 'moon', investment: ctx.capital, leverage: p.lev, side: p.kind } },
       };
     },
   },
@@ -3003,7 +3132,10 @@ const FAMILIES = {
       return {
         values: { lowerPrice: formPrice(shape.floor, ctx.rules), profitPerGrid: opR2(clampNum(p.step, VENUE.infinity.profitMinPct, VENUE.infinity.profitMaxPct)),
                   totalInvestment: opR2(ctx.capital), investmentAsset: 'USDT Only', closeBotAt: '', stopLoss: '' },
-        detail: { floorDropPct: (1 - shape.floor / ctx.spot) * 100, floor: shape.floor },
+        detail: { floorDropPct: (1 - shape.floor / ctx.spot) * 100, floor: shape.floor,
+                  feeDrag: (() => { const rt = 2 * ctx.fees.spotMaker * 100, net = p.step - rt;
+                    return { feePct: ctx.fees.spotMaker * 100, roundTripPct: rt, grossMinPct: p.step, grossMaxPct: p.step, netMinPct: net, netMaxPct: net,
+                             keptMinPct: (net / p.step) * 100, keptMaxPct: (net / p.step) * 100 }; })() },
       };
     },
   },
@@ -3015,7 +3147,8 @@ const FAMILIES = {
     cfg(p, ctx, shape, P0, S, s0) {
       const ratio = S ? volRatio(ctx, S, s0) : 1;
       return { capital: ctx.capital, devPct: clampNum(p.dev * ratio, VENUE.dca.devMinPct, VENUE.dca.devMaxPct), n: p.n, scale: p.s,
-               tpPct: p.tp, slPct: p.sl || 0, feeMaker: ctx.fees.spotMaker, feeTaker: ctx.fees.spotTaker };
+               tpPct: p.tp, slPct: p.sl || 0, feeMaker: ctx.fees.spotMaker, feeTaker: ctx.fees.spotTaker,
+               compound: true };       // the venue's spot DCA bot reinvests each round's profit (help centre, 2026)
     },
     run(S, s0, s1, p, ctx) { return replayMartingale(S, s0, s1, this.cfg(p, ctx, null, S.o[s0], S, s0)); },
     fromValues(v) {
@@ -3092,15 +3225,21 @@ function dcaForm(p, ctx, futures) {
     stopLossPct: p.sl ? opR1(p.sl) : '', stopLossBasis: 'Total profit',
     priceRange: `${formPrice(Math.min(last, ctx.spot), ctx.rules)} – ${formPrice(Math.max(last, ctx.spot) * 2, ctx.rules)}`,
   };
+  // one round's fees: the opening market buy (taker) plus the take-profit sell (maker)
+  const fM = futures ? ctx.fees.futMaker : ctx.fees.spotMaker, fT = futures ? ctx.fees.futTaker : ctx.fees.spotTaker;
+  const rt = (fM + fT) * 100;
   const detail = {
     coveragePct: lad.coveragePct, lastOrderPrice: last, shares: dcaTotalShares(p.n, p.s),
     firstOrder: (ctx.capital / dcaTotalShares(p.n, p.s)) * (p.lev || 1), minInvest: dcaMinInvest(p.n, p.s, ctx.minOrder), ladder: lad.orders,
+    feeDrag: { kind: 'dca', tpPct: p.tp, roundTripPct: rt, keptPct: ((p.tp - rt) / p.tp) * 100, compounds: !futures },
+    use: { kind: futures ? 'futures-dca' : 'dca', investment: ctx.capital, leverage: p.lev || 1, firstOrder: (ctx.capital * (p.lev || 1)) / dcaTotalShares(p.n, p.s), shares: dcaTotalShares(p.n, p.s), scale: p.s },
   };
   if (futures) {
     const liqD = liquidationDistance(p.lev, ctx.mmr, { side: p.side });
     const mae = ctx.hc.scores.length ? maeQuantile(ctx.hc.scores, p.side === 'short' ? 'up' : 'dn', 0.99, ctx.hc.sigmaTrail, ctx.H) : null;
     Object.assign(values, {
-      direction: p.side === 'short' ? 'Short' : 'Long', leverage: `${p.lev}x`, autoReserve: 'On', previewOrder: 'On',
+      // Auto reserve OFF: the whole investment works in the ladder, as measured here
+      direction: p.side === 'short' ? 'Short' : 'Long', leverage: `${p.lev}x`, autoReserve: 'Off', extraMargin: '', previewOrder: 'On',
       roundStart: 'Immediately', cycleCondition: 'Unlimited Cycles',
       tradingRange: tradingRangeFor(ctx), takeProfit: 'Not set', stopLoss: p.sl ? `−${opR1(p.sl)}%` : 'Not set',
     });
@@ -3243,6 +3382,7 @@ function finalise(fam, ctx, mkt, win1, best, extra = {}) {
     testFrom: win1.test.length ? mkt.S1.t[win1.test[0]] : null,
     walkForward: win1.walkForward,
     headline: test || train,
+    parts: partsOf(headRes),
     verdict: verdictOf(train, test, ctx, extra.overfit),
     windows: { train: win1.train.length, test: win1.test.length, days: ctx.H, stride: win1.stride / 24 },
     ctx: { capital: ctx.capital, risk: ctx.risk, H: ctx.H, spot: ctx.spot, sigmaDailyPct: ctx.hc.sigmaD * 100, mmr: ctx.mmr, depth: ctx.depth, fees: ctx.fees },
@@ -3810,9 +3950,11 @@ function solveCoinM(mkt, input, usdm) {
   return {
     ok: true, method: 'derived from the measured USDT-M grid',
     values: { direction: v.direction, lowerPrice: v.lowerPrice, upperPrice: v.upperPrice, grids: v.grids, previewGrids: 'On',
-              autoReserve: 'On', investment: formQty(capital / mkt.spot, mkt.rules), leverage: `${lev}x`, triggerPrice: '', slippage: v.slippage,
+              // Auto reserve OFF, as on the USDT-M grid it is derived from: nothing held back
+              autoReserve: 'Off', investment: formQty(capital / mkt.spot, mkt.rules), extraMargin: '', leverage: `${lev}x`, triggerPrice: '', slippage: v.slippage,
               takeProfit: 'Not set', stopLoss: 'Not set', gridMode: v.gridMode },
-    detail: { liqDistancePct: liquidationDistance(lev, mmr, { side, inverse: true }) * 100, mae99Pct: mae * 100 },
+    detail: { liqDistancePct: liquidationDistance(lev, mmr, { side, inverse: true }) * 100, mae99Pct: mae * 100,
+              use: { kind: 'coinm', investmentCoin: capital / mkt.spot, coin: mkt.pair.base, leverage: lev } },
     notes: [
       { level: 'info', text: `Range and grids from the measured USDT-M solution. Leverage re-solved for the inverse contract: at ${lev}x the liquidation sits ${(liquidationDistance(lev, mmr, { side, inverse: true }) * 100).toFixed(1)}% away, beyond the 99% ${H}-day adverse move of ${(mae * 100).toFixed(1)}%.` },
       { level: 'info', text: 'Hedging mode (1x, no liquidation) holds the coin and a matching short, so it earns the grid without price exposure in coin terms.' },
@@ -3907,6 +4049,14 @@ function solveDcaMulti(mkt, input, dca, basket) {
  *
  *  `solve` names the engine. `measured: true` means it is replayed against
  *  history and can be ranked; otherwise it is solved or derived and says so.
+ *
+ *  2026-10-16: the futures bots now recommend "Auto reserve" OFF. With it on,
+ *  the venue holds part of the investment back as dynamic margin, by a split it
+ *  does not publish (its help centre); the replay puts the whole amount to work,
+ *  so OFF is the setting that makes the bot you create the bot that was
+ *  measured. The OFF labels come from the 2026-09-27 capture for the Futures
+ *  Grid and COIN-M grid; the Futures DCA labels follow the same pattern and are
+ *  to be confirmed at the next capture.
  *
  *  Dennis Grobler
  * ========================================================================== */
@@ -4190,8 +4340,9 @@ const CATALOG = [
       CF('grids', '2. Quantity of Grids (2-1000)', { kind: 'int' }),
       CF('previewGrids', 'Preview Grids', { kind: 'select', options: ['On', 'Off'] }),
       CF('profitPerGrid', 'Profit/grid (fee deducted)', { kind: 'derived' }),
-      CF('autoReserve', 'Auto reserve', { kind: 'select', options: ['On', 'Off'] }),
-      CF('investment', '3.Investment Amount · Investment (USDT)', { kind: 'money', unit: 'USDT' }),
+      CF('autoReserve', 'Auto reserve', { kind: 'select', options: ['On', 'Off'], hint: 'untick it: nothing is held back' }),
+      CF('investment', '3.Actual Invest. · Actual Investment(USDT)', { kind: 'money', unit: 'USDT' }),
+      CF('extraMargin', '4.Extra Margin Amount · Extra Margin(USDT, optional)', { kind: 'money', unit: 'USDT', optional: true }),
       CF('leverage', 'Leverage', { kind: 'lev', hint: '1x–100x' }),
       CF('triggerPrice', 'Trigger Price (USDT,Optional)', { ...ADV, kind: 'price', optional: true }),
       CF('slippage', 'Slippage Control', { ...ADV, kind: 'pct', hint: 'not shown for Neutral' }),
@@ -4214,8 +4365,9 @@ const CATALOG = [
       CF('takeProfitRatio', '2. Take Profit Price (rising) ( 0.2% - 999% )', { kind: 'pct' }),
       CF('safetyOrders', '3. Safety orders ( 1 - 100 )', { kind: 'int' }),
       CF('previewOrder', 'Preview Order', { kind: 'select', options: ['On', 'Off'] }),
-      CF('autoReserve', 'Auto reserve', { kind: 'select', options: ['On', 'Off'] }),
-      CF('investment', '4. Investment · Investment (USDT)', { kind: 'money', unit: 'USDT' }),
+      CF('autoReserve', 'Auto reserve', { kind: 'select', options: ['On', 'Off'], hint: 'untick it: nothing is held back' }),
+      CF('investment', '4. Investment · Actual Investment(USDT)', { kind: 'money', unit: 'USDT', hint: 'with Auto reserve off' }),
+      CF('extraMargin', 'Extra Margin(USDT, optional)', { kind: 'money', unit: 'USDT', optional: true, hint: 'the dynamic margin field' }),
       CF('leverage', 'Leverage', { kind: 'lev', hint: '1x–100x' }),
       CF('triggerPrice', 'Trigger Price (USDT,Optional)', { ...ADV, kind: 'price', optional: true }),
       CF('volumeScale', 'Volume scale (1.0-2.0)', { ...ADV, kind: 'dec1' }),
@@ -4238,8 +4390,9 @@ const CATALOG = [
       CF('upperPrice', '1. Price Range · Highest Price', { kind: 'price' }),
       CF('grids', '2. Quantity of Grids (2-1000)', { kind: 'int' }),
       CF('previewGrids', 'Preview Grids', { kind: 'select', options: ['On', 'Off'] }),
-      CF('autoReserve', 'Auto reserve', { kind: 'select', options: ['On', 'Off'] }),
-      CF('investment', '3.Investment Amount · Investment', { kind: 'coin', unit: 'base' }),
+      CF('autoReserve', 'Auto reserve', { kind: 'select', options: ['On', 'Off'], hint: 'untick it: nothing is held back' }),
+      CF('investment', '3.Actual Invest. · Actual Investment', { kind: 'coin', unit: 'base' }),
+      CF('extraMargin', '4.Extra Margin Amount · Extra Margin(optional)', { kind: 'coin', unit: 'base', optional: true }),
       CF('leverage', 'Leverage', { kind: 'lev', hint: '1x–125x' }),
       CF('triggerPrice', 'Trigger Price (USDT,Optional)', { ...ADV, kind: 'price', optional: true }),
       CF('slippage', 'Slippage Control', { ...ADV, kind: 'pct' }),
@@ -4605,7 +4758,11 @@ async function loadMarket(pairInput, { hourlyDays = 730, dailyDays = 1500, m5Day
       const hit = Array.isArray(stale.hourly[0]) ? { ...stale, pair, hourly: fdUnpack(stale.hourly), daily: fdUnpack(stale.daily), m5: stale.m5 ? fdUnpack(stale.m5) : [] } : stale;
       return { ...hit, cached: true, stale: true, reason: `Live fetch failed (${e.message}); using the last copy.` };
     }
-    return { ok: false, pair, hourly: [], daily: [], m5: [], funding: [], hasPerp: false, source: 'none', asOf: now, reason: `Could not reach the data source: ${e && e.message ? e.message : e}` };
+    // a pair the data source does not list is not a network failure — say which it is
+    const unlisted = e && e.status === 400 && /invalid symbol/i.test(String(e.message || ''));
+    return { ok: false, pair, hourly: [], daily: [], m5: [], funding: [], hasPerp: false, source: 'none', asOf: now,
+             reason: unlisted ? `${pair.display} is not listed on the open market this app reads, so there is no history to replay.`
+                              : `Could not reach the data source: ${e && e.message ? e.message : e}` };
   }
 }
 
@@ -4942,6 +5099,10 @@ function briefOf(calc, result, market) {
     buyAndHold: result && result.bench, confidenceInterval: result && result.ci,
     overfitting: result && result.overfit ? { pbo: result.overfit.pbo, deflatedSharpe: result.overfit.dsr } : null,
     verdict: result && (result.verdict || result.notes),
+    profitSplit: (result && result.parts) || null,
+    fees: (result && result.detail && result.detail.feeDrag) || null,
+    comparedWith: result && result.compare && result.compare.ours && result.compare.theirs && result.compare.ours.ok && result.compare.theirs.ok
+      ? { other: result.compare.label, values: result.compare.values, ours: stat(result.compare.ours.headline), theirs: stat(result.compare.theirs.headline) } : null,
     volatility: market && result && result.forecast ? { dailyPct: result.forecast.sigmaDailyPct, annualPct: result.forecast.annualPct, models: (result.forecast.models || []).map((m) => ({ name: m.name, qlike: m.qlike })) } : null,
     data: market ? { source: market.source, historyDays: market.historyDays, crossCheck: market.crossCheck ? market.crossCheck.maxDeviationPct : null } : null,
   };
@@ -5720,7 +5881,7 @@ html.m-on body{-webkit-tap-highlight-color:transparent}
 const APP_CONFIG = {
   app: 'CryptoCal Px',
   shortName: 'CryptoCal Px',
-  version: '1.1.0',
+  version: '1.2.0',
   publisher: 'Dennis Grobler',
   place: 'Centurion, Gauteng, South Africa',
   website: 'https://wabakipi4050.github.io/cryptocal-px/',
@@ -5778,8 +5939,24 @@ const SETTINGS_KEY = 'cryptocal.settings.v1';
 const BASKET = ['BTC', 'ETH', 'BNB', 'SOL', 'XRP', 'DOGE', 'ADA', 'TRX', 'LINK', 'LTC'];
 const CARRY = ['BTC', 'ETH', 'SOL', 'XRP', 'DOGE', 'ADA', 'LTC', 'LINK', 'SUI', 'APT', 'NEAR', 'ARB', 'INJ', 'TRX', 'DOT', 'ETC', 'FIL', 'UNI', 'LDO', 'PEPE', 'WIF', 'BONK', 'TAO', 'FET', 'ONDO', 'ENS', 'CRV', 'HBAR', 'XLM', 'SHIB'];
 
+/** The fields a measured bot is rebuilt from (the optimizer's fromValues), for "Compare another setup". */
+const CMP_FIELDS = {
+  grid: ['lowerPrice', 'upperPrice', 'grids', 'gridMode', 'takeProfit', 'stopLoss'],
+  reverse: ['lowerPrice', 'upperPrice', 'grids', 'gridMode', 'stopLoss'],
+  margin: ['direction', 'lowerPrice', 'upperPrice', 'grids', 'gridMode', 'leverage', 'stopLoss'],
+  'futures-grid': ['direction', 'lowerPrice', 'upperPrice', 'grids', 'gridMode', 'leverage', 'takeProfit', 'stopLoss', 'stopLossRise'],
+  infinity: ['lowerPrice', 'profitPerGrid'],
+  martingale: ['priceDeviation', 'takeProfitRatio', 'safetyOrders', 'volumeScale', 'stopLossPct'],
+  'futures-martingale': ['direction', 'priceDeviation', 'takeProfitRatio', 'safetyOrders', 'volumeScale', 'leverage'],
+};
+const CMP_SOURCES = [
+  { id: 'ai', label: 'venue\'s AI suggestion', short: 'venue AI', hint: 'Read the values off the venue\'s own suggestion — its "Use AI strategy" tab, or the "Smart parameters" link — and type them here.' },
+  { id: 'copy', label: 'copied strategy', short: 'copied', hint: 'Read the values off a card on the venue\'s "Copy strategy" tab (or any setup someone shared) and type them here.' },
+  { id: 'mine', label: 'setup you typed', short: 'yours', hint: 'Type any setup you are considering.' },
+];
+
 const S = {
-  pair: 'BTC/USDT', capital: 1000, risk: 5, H: 30, depth: 'deep', calcId: 'grid',
+  pair: 'BTC/USDT', capital: 1000, risk: 5, H: 30, depth: 'deep', calcId: 'grid', cmpSrc: 'ai',
   raw: null, mkt: null, results: new Map(), markets: new Map(),
   basket: null, carry: null, book: null, stopStream: null, live: null,
   chart: null, tf: '1h', overlays: { levels: true, fan: true, replay: false }, replay: null,
@@ -5861,10 +6038,14 @@ function uiRenderList() {
 
 /* ------------------------------ market loading ----------------------------- */
 
+/** Why a tokenised stock, ETF or metal is not computed — instead of a misleading network error. */
+const uiRwaReason = (pair) => `${pair.display} is a tokenised stock, ETF or metal. These follow their own market's trading sessions and fee schedule, and the open market this app reads has no history for them — so there is nothing honest to compute yet.`;
+
 async function uiEnsureMarket(pairStr) {
   const pair = parsePair(pairStr);
   const key = pair.display;
   if (S.markets.has(key)) return S.markets.get(key);
+  if (isRwa(pair.base)) return { raw: { ok: false, pair, reason: uiRwaReason(pair) }, mkt: null };
   const raw = await loadMarket(pair, { onStage: (s) => uiSetStatus(`Loading ${key} · ${s}…`) });
   if (!raw.ok) return { raw, mkt: null };
   const mkt = prepareMarket(raw);
@@ -5885,7 +6066,13 @@ async function uiLoadPrimary() {
   uiSetStatus(`Loading ${S.pair}…`);
   const { raw, mkt } = await uiEnsureMarket(S.pair);
   S.raw = raw; S.mkt = mkt;
-  if (!mkt) { uiSetStatus(raw.reason || 'No data', 'bad'); uiRenderMarket(); uiRenderChart(); return false; }
+  if (!mkt) {
+    uiSetStatus(raw.reason || 'No data', 'bad'); uiRenderMarket(); uiRenderChart();
+    // say it where the values would have been, rather than leave the last pair's setup on screen
+    const calc = calcById(S.calcId), r = { ok: false, reason: raw.reason || 'No data for this pair.' };
+    uiRenderForm(calc, r); uiRenderEvidence(calc, r); uiRenderList();
+    return false;
+  }
   uiStatusMarket();
   if (S.stopStream) S.stopStream();
   S.stopStream = streamPrice(mkt.pair.symbol, (tick) => {
@@ -6039,10 +6226,12 @@ function uiRenderForm(calc, r, loading = false) {
       <button class="cc-btn" id="btn-copy-all">Copy setup</button>
       <button class="cc-btn" id="btn-json">JSON</button>
       <button class="cc-btn" id="btn-csv">CSV</button>
-      ${calc.measured && ['grid', 'reverse', 'futures-grid', 'margin', 'infinity', 'martingale', 'futures-martingale'].includes(calc.solve) ? '<button class="cc-btn" id="btn-edit">Edit &amp; re-measure</button>' : ''}
+      ${calc.measured && CMP_FIELDS[calc.solve] ? '<button class="cc-btn" id="btn-edit">Edit &amp; re-measure</button><button class="cc-btn" id="btn-compare">Compare another setup</button>' : ''}
       <span class="cc-mute">Method: ${esc(method)}</span>
     </div>
+    <div id="cc-compare-host"></div>
     ${uiBackCheck(calc, r)}
+    ${uiCosts(calc, r)}
     ${(r.alternatives || []).length ? `<h4>Alternatives from the same finalists</h4><div class="cc-row">${r.alternatives.map((a, i) => `<button class="cc-btn" data-alt="${i}">${esc(a.label)} · ${a.train ? uiPct(a.train.meanPct, 1) : ''}</button>`).join('')}</div>` : ''}`;
 }
 
@@ -6064,6 +6253,38 @@ function uiBackCheck(calc, r) {
   if (d.pTpFirstPct !== undefined) items.push(`take-profit first in ${uiN(d.pTpFirstPct, 0)}% of driftless paths`);
   if (d.lumpBps !== undefined && d.lumpBps !== null) items.push(`one lump would cost ${uiN(d.lumpBps, 2)} bps vs mid`);
   return items.length ? `<h4>The venue should show you back</h4><p class="cc-mute">${items.map(esc).join(' · ')}</p>` : '';
+}
+
+/** What fees take from each step or round, and where the investment goes. */
+function uiCosts(calc, r) {
+  const d = r.detail || {};
+  const fd = d.feeDrag, u = d.use;
+  const P = (x, k = 2) => `${uiN(x, k)}%`;
+  const span = (a, b, k = 2) => (Math.abs(a - b) < 0.5 * 10 ** -k ? P(a, k) : `${P(a, k)}–${P(b, k)}`);
+  const usd = (x) => `${Math.round(x).toLocaleString('en-US')} USDT`;
+  const lines = [];
+  if (fd && fd.kind === 'dca') {
+    lines.push(`Fees: about ${P(fd.roundTripPct)} a round (the opening market buy and the take-profit sell) against a ${P(fd.tpPct, 1)} take-profit, so each completed round keeps about ${uiN(fd.keptPct, 0)}% of its target.`);
+  } else if (fd && fd.feePct > 0) {
+    lines.push(`Fees: ${P(fd.roundTripPct)} of every grid step (${P(fd.feePct, 3)} on the buy and again on the sell). Each step here is ${span(fd.grossMinPct, fd.grossMaxPct)} before fees and ${span(fd.netMinPct, fd.netMaxPct)} after, so fees take ${span(100 - fd.keptMaxPct, 100 - fd.keptMinPct, 0)} of what a step earns. A step has to beat ${P(fd.roundTripPct)} to earn anything.`);
+  }
+  if (d.profitSharePct) lines.push(`No trading fee on this bot: the venue keeps ${uiN(d.profitSharePct, 0)}% of the net profit when you close, reduce or withdraw — never of a loss. The evidence already takes it off.`);
+  if (u && u.kind === 'spot' && d.sellOrders !== undefined) {
+    lines.push(`Your ${usd(u.investment)}: about ${usd(u.coinCost)} buys ≈ ${d.coinToBuy.toPrecision(4)} ${S.mkt ? S.mkt.pair.base : ''} at creation for the ${d.sellOrders} sell orders above the price, and about ${usd(u.inBuys)} waits in the ${d.buyOrders} buy orders below. Both stay locked inside the bot until it closes.`);
+  } else if (u && u.kind === 'futures') {
+    lines.push(`Auto reserve off: all ${usd(u.investment)} is the grid's margin at ${u.leverage}×, up to ${usd(u.notional)} of position once every order on the losing side fills. Nothing is held back, and that is the bot measured here. With Auto reserve on, the venue keeps part of it aside as extra margin by a split it does not publish — smaller grids, liquidation further away — and these figures would no longer match.`);
+  } else if (u && u.kind === 'futures-dca') {
+    lines.push(`Auto reserve off: all ${usd(u.investment)} works in the ladder at ${u.leverage}× (${uiN(u.shares, u.shares % 1 ? 1 : 0)} shares; the first order is about ${usd(u.firstOrder)} of position). Nothing is held back, and that is the bot measured here; with Auto reserve on the venue would set part of it aside by a split it does not publish.`);
+  } else if (u && u.kind === 'dca') {
+    lines.push(`Your ${usd(u.investment)} is split into ${uiN(u.shares, u.shares % 1 ? 1 : 0)} shares: the first order is about ${usd(u.firstOrder)}, and ${u.scale > 1 ? `each safety order is ${u.scale}× the one before` : 'every safety order is the same size'}.`);
+  } else if (u && u.kind === 'coinm') {
+    lines.push(`Auto reserve off: all ${Number(u.investmentCoin.toPrecision(4))} ${u.coin} is the grid's margin at ${u.leverage}×, so the bot you create is the one the USDT-M grid measured.`);
+  } else if (u && u.kind === 'margin') {
+    lines.push(`At ${u.leverage}× the bot borrows about ${usd(u.borrowed)} against your collateral; the daily interest is charged in the evidence.`);
+  } else if (u && u.kind === 'moon') {
+    lines.push('The venue splits the investment between the grid and an extra margin itself (the form shows Actual Investment + Extra Margin) and does not publish the split, so the replay puts all of it to work — modelled.');
+  }
+  return lines.length ? `<h4>Fees and where your money goes</h4>${lines.map((l) => `<p class="cc-mute cc-cost">${esc(l)}</p>`).join('')}` : '';
 }
 
 /* -------------------------------- evidence --------------------------------- */
@@ -6105,6 +6326,7 @@ function uiRenderEvidence(calc, r) {
   const k = (label, val, cls = '', num = null) => `<div class="cc-kpi"><b class="${cls}"${Number.isFinite(num) ? ` data-count="${num}"` : ''}>${val}</b><span>${label}</span></div>`;
   const of = r.overfit || {};
   host.innerHTML = `<header class="cc-card-h"><h3>Evidence <small>${r.walkForward ? 'out of sample' : 'in sample'} · ${r.windows ? `${r.windows.test || r.windows.train} × ${r.windows.days}-day windows` : ''}</small></h3></header>
+    ${uiCompareBlock(calc, r)}
     <div class="cc-kpis">
       ${k('mean / window', uiPct(h.meanPct), h.meanPct >= 0 ? 'pos' : 'neg', +h.meanPct.toFixed(2))}
       ${k('windows won', `${uiN(h.winRatePct, 0)}%`, '', Math.round(h.winRatePct))}
@@ -6120,6 +6342,7 @@ function uiRenderEvidence(calc, r) {
       ${r.mirror ? `<tr><td>Mirror test</td><td class="num">${uiPct(r.mirror.meanPct)}</td><td class="num">${uiPct(r.mirror.medianPct)}</td><td class="num">${uiN(r.mirror.winRatePct, 0)}%</td><td class="num">${uiPct(r.mirror.p05Pct)}</td><td class="num">${uiN(r.mirror.ddMaxPct, 1)}%</td></tr>` : ''}
       ${r.bench ? `<tr><td>Hold the coin</td><td class="num">${uiPct(r.bench.holdMeanPct)}</td><td class="num">${uiPct(r.bench.holdMedianPct)}</td><td class="num" colspan="3">setup beat holding in ${uiN(r.bench.beatHoldPct, 0)}%</td></tr>` : ''}
     </tbody></table>
+    ${uiParts(calc, r)}
     <h4>Is the edge real?</h4>
     <div class="cc-gauges">${uiGauge(of.pbo, 'overfitting risk', false)}${uiGauge(of.dsr, 'edge confidence', true)}${uiGauge(h.winRatePct / 100, 'windows won', true)}</div>
     <table class="cc-tbl"><tbody>
@@ -6130,6 +6353,77 @@ function uiRenderEvidence(calc, r) {
     </tbody></table>
     <div class="cc-notes">${notes}</div>`;
   if (M.active) { mCountUp(host); M.setBadge('proof', h.meanPct >= 0 ? '✓' : '!'); }
+}
+
+/**
+ * Where the average window's result came from, split the way the venue reports
+ * a bot: grid profit (or completed rounds) against the coin or position still
+ * held, with funding, interest and the venue's profit share on their own lines.
+ */
+function uiParts(calc, r) {
+  const p = r.parts;
+  if (!p) return '';
+  const grid = p.kind === 'grid';
+  const held = calc.market === 'spot' ? 'Coin still held' : 'Position still open';
+  const rows = grid
+    ? [['Grid profit', 'completed buy-then-sell pairs, after fees', p.gridPct],
+       [held, 'its price move, plus opening fees and any stop', p.positionPct],
+       ['Funding', 'paid or received every 8 h', p.fundingPct],
+       ['Borrow interest', 'charged daily on the borrowed part', p.interestPct],
+       ['Profit share', 'the venue\'s cut of net profit', p.sharePct]]
+    : [['Completed rounds', 'sold at take-profit, after fees', p.roundsPct],
+       ['Round still open', 'marked at the end of the window', p.openPct],
+       ['Funding', 'paid or received every 8 h', p.fundingPct]];
+  const shown = rows.filter(([, , v]) => Number.isFinite(v) && Math.abs(v) >= 0.005);
+  const scale = Math.max(0.01, Math.abs(p.totalPct) || 0, ...shown.map(([, , v]) => Math.abs(v)));
+  const bar = (v) => {
+    const w = Math.min(50, (Math.abs(v) / scale) * 50);
+    return `<span class="cc-pb" aria-hidden="true"><i class="${v >= 0 ? 'pos' : 'neg'}" style="left:${v >= 0 ? 50 : 50 - w}%;width:${w.toFixed(2)}%"></i></span>`;
+  };
+  const row = ([label, sub, v], total = false) => `<div class="cc-pr${total ? ' total' : ''}"><span class="l">${esc(label)}${sub ? `<small>${esc(sub)}</small>` : ''}</span>${bar(v)}<b class="${v >= 0 ? 'pos' : 'neg'}">${uiPct(v)}</b></div>`;
+  const notes = [];
+  if (p.earnedButLost) {
+    notes.push(grid
+      ? `In ${p.earnedButLost} of ${p.windows} windows the grid itself earned, yet the total lost money: ${calc.market === 'spot' ? 'the coin it held fell' : 'the position it held moved against it'} by more than the grid made. That is the risk of a range bot in a one-way market.`
+      : `In ${p.earnedButLost} of ${p.windows} windows the completed rounds made money, yet the total lost: the last round was stuck short of its take-profit when the window ended.`);
+  }
+  if (grid && calc.solve === 'grid') notes.push('Grid profit stays in the bot as cash here. The venue\'s Auto Reinvest — a setting on a running bot — would buy coin with it in 24-hour batches once a threshold is met; that is not modelled.');
+  if (!grid && calc.solve === 'martingale') notes.push('Each round\'s profit is reinvested in the next round, as the venue\'s DCA bot does, so later rounds are larger.');
+  return `<h4>Where the result came from <small>average ${r.test ? 'unseen ' : ''}window · % of capital</small></h4>
+    <div class="cc-parts">${shown.map((x) => row(x)).join('')}${row(['Total', '', p.totalPct], true)}</div>
+    ${notes.map((n) => `<p class="cc-mute">${esc(n)}</p>`).join('')}`;
+}
+
+/** Another setup — the venue's AI suggestion, a copied strategy or your own — against ours, window by window. */
+function uiCompareBlock(calc, r) {
+  const c = r.compare;
+  if (!c || !c.ours || !c.ours.ok || !c.theirs || !c.theirs.ok) return '';
+  const A = c.ours.headline, B = c.theirs.headline;
+  const head = (res) => { const t = res.samples.filter((s) => s.set === 'test'); return t.length ? t : res.samples; };
+  const theirsByT = new Map(head(c.theirs).map((s) => [s.t, s.ret]));
+  const pairs = head(c.ours).filter((s) => theirsByT.has(s.t));
+  const n = pairs.length;
+  const oursWon = pairs.filter((s) => s.ret > theirsByT.get(s.t)).length;
+  const unseen = c.ours.test ? 'unseen ' : '';
+  const best = (a, b, hi) => (Math.abs(a - b) < 1e-9 ? ['', ''] : (hi ? a > b : a < b) ? ['best', ''] : ['', 'best']);
+  // mark the better figure only where it shows: two values that print the same are a tie
+  const line = (label, a, b, fmt, hi = true) => { const [ca, cb] = fmt(a) === fmt(b) ? ['', ''] : best(a, b, hi); return `<tr><td>${label}</td><td class="num ${ca}">${fmt(a)}</td><td class="num ${cb}">${fmt(b)}</td></tr>`; };
+  const pct0 = (x) => `${uiN(x, 0)}%`, pct1 = (x) => `${uiN(x, 1)}%`;
+  const verdict = A.meanPct >= B.meanPct
+    ? `On the same ${n} ${unseen}${c.ours.windows.days}-day windows ours averaged ${uiPct(A.meanPct)} against ${uiPct(B.meanPct)} for the ${c.label}, and did better in ${oursWon} of ${n} windows head to head.`
+    : `On the same ${n} ${unseen}${c.ours.windows.days}-day windows the ${c.label} averaged ${uiPct(B.meanPct)} against ${uiPct(A.meanPct)} for ours, and did better in ${n - oursWon} of ${n} windows head to head. Check its drawdown and worst window before you prefer it.`;
+  return `<section class="cc-cmp"><h4>Side by side <small>${esc(c.label)} vs ours · fixed values · same windows</small></h4>
+    <table class="cc-tbl"><thead><tr><th></th><th>ours</th><th>${esc(c.short)}</th></tr></thead><tbody>
+      ${line('mean / window', A.meanPct, B.meanPct, (x) => uiPct(x))}
+      ${line('median', A.medianPct, B.medianPct, (x) => uiPct(x))}
+      ${line('windows won', A.winRatePct, B.winRatePct, pct0)}
+      ${line('worst window', A.worstPct, B.worstPct, (x) => uiPct(x, 1))}
+      ${line('max drawdown', A.ddMaxPct, B.ddMaxPct, pct1, false)}
+      ${line('liquidations', A.liquidations || 0, B.liquidations || 0, String, false)}
+      ${c.ours.bench && c.theirs.bench ? line('beat holding the coin', c.ours.bench.beatHoldPct, c.theirs.bench.beatHoldPct, pct0) : ''}
+    </tbody></table>
+    <div class="cc-notes"><div class="cc-note ${A.meanPct >= B.meanPct ? 'good' : 'warn'}">${esc(verdict)}</div></div>
+    <p class="cc-mute">Both are replayed as the exact values shown, re-anchored to each window's opening price, on the same windows. The evidence below measures our rule instead — the range re-scaled to each window's own volatility — so its figures for ours differ from the fixed values here.</p></section>`;
 }
 
 function uiSolvedDetail(r) {
@@ -6402,6 +6696,50 @@ function uiEditMode() {
   };
 }
 
+/** Open (or close) the panel for another setup to measure against ours. */
+function uiCompareMode() {
+  const calc = calcById(S.calcId), r = S.results.get(uiResultKey(calc));
+  const host = $('#cc-compare-host');
+  if (!r || !r.ok || !host) return;
+  if (host.innerHTML.trim()) { host.innerHTML = ''; return; }
+  const fields = (CMP_FIELDS[calc.solve] || []).map((id) => calc.fields.find((f) => f.id === id)).filter(Boolean);
+  const prev = (r.compare && r.compare.values) || {};
+  const val = (f) => (prev[f.id] !== undefined ? prev[f.id] : r.values[f.id] ?? '');
+  const ctl = (f) => (f.kind === 'select'
+    ? `<select class="edit" data-cmp="${f.id}">${(f.options || []).map((o) => `<option${String(val(f)) === o ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select>`
+    : `<input class="edit" data-cmp="${f.id}" value="${esc(val(f))}" autocomplete="off" spellcheck="false">`);
+  const src = CMP_SOURCES.find((s) => s.id === S.cmpSrc) || CMP_SOURCES[0];
+  host.innerHTML = `<div class="cc-compare">
+    <h4>Compare another setup on the same windows</h4>
+    <div class="cc-seg" id="cmp-src" role="group" aria-label="Where the setup comes from">${CMP_SOURCES.map((s) => `<button type="button" data-src="${s.id}" class="${s.id === src.id ? 'on' : ''}">${esc(s.short)}</button>`).join('')}</div>
+    <p class="cc-mute" id="cmp-hint">${esc(src.hint)} Fields left as they are keep our values.</p>
+    <table class="cc-fields"><tbody>${fields.map((f) => `<tr><td class="k">${esc(f.label)}</td><td>${ctl(f)}</td></tr>`).join('')}</tbody></table>
+    <div class="cc-row"><button class="cc-btn cc-btn-go" id="cmp-go" type="button">Measure side by side</button><button class="cc-btn" id="cmp-close" type="button">Close</button></div>
+  </div>`;
+}
+
+/** Measure the typed setup and ours as fixed values on the same windows, and show them side by side. */
+function uiCompareRun() {
+  const calc = calcById(S.calcId), r = S.results.get(uiResultKey(calc));
+  if (!r || !r.ok) return;
+  const vals = {};
+  $$('#cc-compare-host [data-cmp]').forEach((el) => { vals[el.dataset.cmp] = el.value; });
+  const theirs = measureSetup(calc, S.mkt, uiInput(), { ...r.values, ...vals });
+  if (!theirs.ok) { uiToast(theirs.reason); return; }
+  const ours = (r.compare && r.compare.ours) || measureSetup(calc, S.mkt, uiInput(), r.values);
+  if (!ours.ok) { uiToast(ours.reason); return; }
+  const src = CMP_SOURCES.find((s) => s.id === S.cmpSrc) || CMP_SOURCES[0];
+  r.compare = { label: src.label, short: src.short, values: vals, ours, theirs };
+  uiRenderEvidence(calc, r);
+  haptic('success');
+  if (M.active) { M.setBadge('proof', '⇄'); M.go('proof'); }
+  else {
+    uiToast('Measured — side by side in Evidence');
+    const ev = $('#cc-evidence');
+    if (ev && ev.scrollIntoView) ev.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
 function uiWriteHash() {
   const h = `#pair=${encodeURIComponent(S.pair)}&calc=${S.calcId}&capital=${S.capital}&risk=${S.risk}&h=${S.H}`;
   try { history.replaceState(null, '', h); } catch { /* file:// in some browsers */ }
@@ -6424,7 +6762,7 @@ function uiSyncControls() {
 }
 
 function uiWire() {
-  $('#pair-list').innerHTML = listedBases('USDT').slice(0, 400).map((b) => `<option value="${b}/USDT">`).join('');
+  $('#pair-list').innerHTML = listedBases('USDT').slice(0, 400).map((b) => `<option value="${b}/USDT"${isRwa(b) ? ' label="tokenised asset · not covered"' : ''}>`).join('');
   $('#in-risk').addEventListener('input', (e) => { $('#risk-label').textContent = `${e.target.value} · ${RISK_NAMES[e.target.value]}`; });
   $('#cc-controls').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -6464,6 +6802,15 @@ function uiWire() {
     if (e.target.id === 'btn-json') { const calc = calcById(S.calcId), r = S.results.get(uiResultKey(calc)); uiDownload(`${calc.id}-${S.pair.replace('/', '')}.json`, JSON.stringify({ app: `CryptoCal Px ${APP_VERSION}`, calc: calc.id, pair: S.pair, input: uiInput(), values: r.values, headline: r.headline || null, overfit: r.overfit || null }, null, 2), 'application/json'); }
     if (e.target.id === 'btn-csv') { const calc = calcById(S.calcId), r = S.results.get(uiResultKey(calc)); uiDownload(`${calc.id}-${S.pair.replace('/', '')}.csv`, ['field,value', ...calc.fields.filter((f) => r.values[f.id] !== undefined).map((f) => `"${f.label.replace(/"/g, '""')}","${String(r.values[f.id]).replace(/"/g, '""')}"`)].join('\n'), 'text/csv'); }
     if (e.target.id === 'btn-edit') uiEditMode();
+    if (e.target.id === 'btn-compare' || e.target.id === 'cmp-close') uiCompareMode();
+    if (e.target.id === 'cmp-go') uiCompareRun();
+    const sb = e.target.closest('#cmp-src [data-src]');
+    if (sb) {
+      S.cmpSrc = sb.dataset.src;
+      $$('#cmp-src button').forEach((b) => b.classList.toggle('on', b === sb));
+      const s = CMP_SOURCES.find((x) => x.id === S.cmpSrc);
+      if (s && $('#cmp-hint')) $('#cmp-hint').textContent = `${s.hint} Fields left as they are keep our values.`;
+    }
   });
   $$('.cc-tabs button').forEach((b) => b.addEventListener('click', () => uiShowView(b.dataset.view)));
   $('#tf-seg').addEventListener('click', (e) => { const b = e.target.closest('[data-tf]'); if (!b) return; S.tf = b.dataset.tf; $$('#tf-seg button').forEach((x) => x.classList.toggle('on', x === b)); uiRenderChart(); });

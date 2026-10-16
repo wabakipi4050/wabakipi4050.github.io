@@ -1,5 +1,5 @@
-/* Black Edition 2.1.0 — offline copy of the page. Cache name carries the page hash, so a new build replaces the old copy. */
-const CACHE = 'black-edition-ea138db85e16';
+/* Black Edition 2.2.0 — offline copy of the page. Cache name carries the page hash, so a new build replaces the old copy. */
+const CACHE = 'black-edition-d62949164bc4';
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './manifest.webmanifest', './icon-512.png'])).then(() => self.skipWaiting())); });
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k.startsWith('black-edition-') && k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', (e) => {
